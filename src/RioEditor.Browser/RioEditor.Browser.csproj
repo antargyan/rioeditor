@@ -1,0 +1,28 @@
+<!-- The WebAssembly SDK (not the plain .NET SDK) is what makes `dotnet run` boot the app in a
+     browser instead of on the host runtime, and what produces the static-site publish output. -->
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <RootNamespace>RioEditor.Browser</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <!-- Required by the [JSImport]/[JSExport] source generator. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WasmMainJSPath>wwwroot\main.js</WasmMainJSPath>
+    <!-- AOT is off for fast iteration; publish with -p:RunAOTCompilation=true for release. -->
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+    <NoWarn>$(NoWarn);IL2026;IL3050</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RioEditor.App\RioEditor.App.csproj" />
+  </ItemGroup>
+
+</Project>

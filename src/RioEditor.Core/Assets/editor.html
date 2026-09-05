@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{THEME}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>RioEditor</title>
+  {{REMOTE_SCRIPTS}}
+  <style>/*{{STYLES}}*/</style>
+</head>
+<body>
+  <!-- The whole WYSIWYG surface. There is no preview pane and no source pane: rendered HTML *is*
+       the editable document, exactly like Typora. -->
+  <main id="page">
+    <div id="editor"
+         contenteditable="true"
+         spellcheck="true"
+         autocorrect="off"
+         autocapitalize="off"
+         role="textbox"
+         aria-multiline="true"><p><br></p></div>
+  </main>
+  <script>/*{{ENGINE}}*/</script>
+</body>
+</html>

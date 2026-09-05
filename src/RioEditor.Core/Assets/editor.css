@@ -1,0 +1,295 @@
+/* ============================================================================
+   RioEditor — WYSIWYG surface theme
+   Design tokens are defined once on :root (light) and overridden for dark.
+   Every colour in the sheet goes through a token so theme switching is a single
+   attribute flip on <html data-theme>, with no reflow and no reload.
+   ========================================================================== */
+
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #f7f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --fg-faint: #8c959f;
+  --accent: #0969da;
+  --accent-soft: rgba(9, 105, 218, 0.12);
+  --border: #d8dee4;
+  --border-strong: #b8c0c8;
+  --code-bg: #f4f5f7;
+  --code-fg: #1f2328;
+  --code-border: #e3e6ea;
+  --quote-bar: #d0d7de;
+  --mark-bg: #fff3c4;
+  --selection: rgba(9, 105, 218, 0.20);
+  --table-stripe: #fafbfc;
+  --danger: #cf222e;
+
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue",
+               "Noto Sans", Ubuntu, Cantarell, sans-serif;
+  --font-mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+
+  --measure: 46rem;      /* comfortable reading column */
+  --leading: 1.7;
+  --size-body: 16.5px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-elevated: #161b22;
+  --fg: #e6edf3;
+  --fg-muted: #9198a1;
+  --fg-faint: #6e7681;
+  --accent: #4493f8;
+  --accent-soft: rgba(68, 147, 248, 0.16);
+  --border: #30363d;
+  --border-strong: #444c56;
+  --code-bg: #161b22;
+  --code-fg: #e6edf3;
+  --code-border: #30363d;
+  --quote-bar: #3d444d;
+  --mark-bg: #4a3c10;
+  --selection: rgba(68, 147, 248, 0.28);
+  --table-stripe: #12171e;
+  --danger: #ff7b72;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  line-height: var(--leading);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Theme flips should feel instant but not jarring. */
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+::selection { background: var(--selection); }
+
+#page {
+  min-height: 100%;
+  padding: 48px 24px 45vh 24px;   /* deep bottom padding keeps the last line off the floor */
+  display: flex;
+  justify-content: center;
+}
+
+#editor {
+  width: 100%;
+  max-width: var(--measure);
+  outline: none;
+  caret-color: var(--accent);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- typography */
+
+#editor > * { margin: 0 0 1.05em 0; }
+
+#editor h1, #editor h2, #editor h3,
+#editor h4, #editor h5, #editor h6 {
+  font-weight: 650;
+  line-height: 1.28;
+  margin: 1.6em 0 0.6em;
+  letter-spacing: -0.011em;
+}
+#editor > h1:first-child,
+#editor > h2:first-child,
+#editor > h3:first-child { margin-top: 0; }
+
+#editor h1 { font-size: 2.05em; }
+#editor h2 { font-size: 1.62em; padding-bottom: .24em; border-bottom: 1px solid var(--border); }
+#editor h3 { font-size: 1.32em; }
+#editor h4 { font-size: 1.12em; }
+#editor h5 { font-size: 1em; }
+#editor h6 { font-size: .92em; color: var(--fg-muted); }
+
+#editor p { margin: 0 0 1.05em; }
+#editor strong { font-weight: 680; }
+#editor em { font-style: italic; }
+#editor del { color: var(--fg-muted); }
+#editor mark { background: var(--mark-bg); color: inherit; padding: 0 .15em; border-radius: 2px; }
+#editor small { font-size: .86em; color: var(--fg-muted); }
+
+#editor a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+}
+#editor a:hover { border-bottom-color: var(--accent); }
+
+#editor hr {
+  height: 1px;
+  border: 0;
+  background: var(--border);
+  margin: 2em 0;
+}
+
+#editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: .4em 0;
+}
+
+/* ---------------------------------------------------------------- quotes & lists */
+
+#editor blockquote {
+  margin: 1.2em 0;
+  padding: .15em 0 .15em 1.1em;
+  border-left: 3px solid var(--quote-bar);
+  color: var(--fg-muted);
+}
+#editor blockquote > :last-child { margin-bottom: 0; }
+
+#editor ul, #editor ol { padding-left: 1.6em; margin: 0 0 1.05em; }
+#editor li { margin: .28em 0; }
+#editor li > ul, #editor li > ol { margin: .28em 0 0; }
+
+/* Task lists: Markdig emits a disabled checkbox; we re-enable it so the user can tick it. */
+#editor li.task-list-item,
+#editor li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.25em; }
+#editor input[type="checkbox"] {
+  margin-right: .55em;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.08em;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- code */
+
+#editor code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border: 1px solid var(--code-border);
+  border-radius: 5px;
+  padding: .12em .36em;
+}
+
+#editor pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 1.2em 0;
+  line-height: 1.55;
+}
+#editor pre > code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: .86em;
+  white-space: pre;
+  display: block;
+}
+
+/* Minimal, dependency-free token colouring applied by the engine's highlighter. */
+.tok-keyword { color: #cf222e; }
+.tok-string  { color: #0a3069; }
+.tok-comment { color: var(--fg-faint); font-style: italic; }
+.tok-number  { color: #953800; }
+.tok-func    { color: #8250df; }
+:root[data-theme="dark"] .tok-keyword { color: #ff7b72; }
+:root[data-theme="dark"] .tok-string  { color: #a5d6ff; }
+:root[data-theme="dark"] .tok-number  { color: #ffa657; }
+:root[data-theme="dark"] .tok-func    { color: #d2a8ff; }
+
+/* ---------------------------------------------------------------- tables */
+
+#editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.3em 0;
+  font-size: .95em;
+  display: block;
+  overflow-x: auto;
+}
+#editor th, #editor td {
+  border: 1px solid var(--border);
+  padding: .5em .8em;
+  text-align: left;
+}
+#editor th { background: var(--bg-elevated); font-weight: 640; }
+#editor tbody tr:nth-child(even) { background: var(--table-stripe); }
+
+/* ---------------------------------------------------------------- mermaid & math */
+
+#editor .mermaid {
+  display: block;
+  margin: 1.4em 0;
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: .85em;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+/* Once Mermaid has drawn the SVG the monospace fallback styling stops applying. */
+#editor .mermaid[data-processed="true"] {
+  white-space: normal;
+  font-family: var(--font-body);
+  color: var(--fg);
+}
+#editor .mermaid svg { max-width: 100%; height: auto; }
+
+#editor .math {
+  font-family: var(--font-mono);
+  color: var(--fg);
+}
+#editor div.math {
+  display: block;
+  margin: 1.2em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.katex { font-size: 1.05em; }
+.katex-display { margin: 1.2em 0; overflow-x: auto; overflow-y: hidden; }
+
+/* ---------------------------------------------------------------- footnotes, misc */
+
+#editor .footnotes {
+  border-top: 1px solid var(--border);
+  margin-top: 2.4em;
+  padding-top: 1em;
+  font-size: .9em;
+  color: var(--fg-muted);
+}
+#editor sup a { border-bottom: 0; }
+
+/* Empty-paragraph placeholder, so a blank document is not a blank void. */
+#editor > p:only-child:empty::before,
+#editor > p:only-child > br:only-child::before {
+  content: "Start writing…";
+  color: var(--fg-faint);
+  pointer-events: none;
+}
+
+/* Block currently under the caret — a very quiet highlight, Typora-style focus. */
+#editor .rio-active-block { }
+
+/* Scrollbars that match the theme instead of the OS default. */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--fg-faint); }

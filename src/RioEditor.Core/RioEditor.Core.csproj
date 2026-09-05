@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Platform-neutral: consumed by the desktop head and by the WASM head alike. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>RioEditor.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="$(MarkdigVersion)" />
+    <PackageReference Include="HtmlAgilityPack" Version="$(HtmlAgilityPackVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The editor document is embedded rather than copied: the WebView is fed a single
+         self-contained HTML string, which sidesteps the per-platform asset URL schemes. -->
+    <EmbeddedResource Include="Assets\editor.html" LogicalName="RioEditor.Core.Assets.editor.html" />
+    <EmbeddedResource Include="Assets\editor.css" LogicalName="RioEditor.Core.Assets.editor.css" />
+    <EmbeddedResource Include="Assets\editor.js" LogicalName="RioEditor.Core.Assets.editor.js" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RioEditor.App.ViewModels"
+             xmlns:views="clr-namespace:RioEditor.App.Views"
+             x:Class="RioEditor.App.Views.MainView"
+             x:DataType="vm:MainViewModel"
+             x:CompileBindings="True">
+
+  <!-- Shortcuts live on the shell so they work regardless of focus. -->
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="Ctrl+N" Command="{Binding NewDocument}" />
+    <KeyBinding Gesture="Ctrl+O" Command="{Binding Open}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding Save}" />
+    <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveAs}" />
+    <KeyBinding Gesture="Ctrl+Alt+T" Command="{Binding ToggleTheme}" />
+  </UserControl.KeyBindings>
+
+  <DockPanel LastChildFill="True">
+
+    <!-- ===== Top chrome: file commands + formatting toolbar ================= -->
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" Margin="8,6" VerticalAlignment="Center">
+          <Button Classes="tool wide" Command="{Binding NewDocument}" Content="New" ToolTip.Tip="New (Ctrl+N)" />
+          <Button Classes="tool wide" Command="{Binding Open}" Content="Open" ToolTip.Tip="Open (Ctrl+O)" />
+          <Button Classes="tool wide" Command="{Binding Save}" Content="Save" ToolTip.Tip="Save (Ctrl+S)" />
+          <Button Classes="tool wide" Command="{Binding SaveAs}" Content="Save As" ToolTip.Tip="Save As (Ctrl+Shift+S)" />
+          <Separator Classes="tool" />
+        </StackPanel>
+
+        <views:ToolbarView Grid.Column="1" DataContext="{Binding Toolbar}" />
+
+        <Button Grid.Column="2" Classes="tool" Margin="8,6"
+                Command="{Binding ToggleTheme}"
+                ToolTip.Tip="Toggle light / dark (Ctrl+Alt+T)">
+          <TextBlock Text="◐" FontSize="15" />
+        </Button>
+
+      </Grid>
+    </Border>
+
+    <!-- ===== Status bar ==================================================== -->
+    <Border DockPanel.Dock="Bottom"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="12,5">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="{Binding StatusText}" FontSize="12" Opacity="0.75" />
+        <TextBlock Grid.Column="1" Text="{Binding Document.FileName}" FontSize="12" Opacity="0.75" />
+      </Grid>
+    </Border>
+
+    <!-- ===== The editing surface ==========================================
+         Filled at runtime with the platform WebView (desktop) or the overlaid
+         iframe host (WASM); see MainView.axaml.cs. -->
+    <Panel>
+      <ContentControl x:Name="EditorHost" />
+
+      <!-- Shown only when no WebView backend could be created. -->
+      <Border x:Name="SurfaceFallback"
+              IsVisible="False"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+              Padding="32">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="520">
+          <TextBlock Text="The editing surface could not start"
+                     FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock x:Name="SurfaceFallbackReason"
+                     TextWrapping="Wrap" HorizontalAlignment="Center" Opacity="0.8" />
+        </StackPanel>
+      </Border>
+    </Panel>
+
+  </DockPanel>
+</UserControl>

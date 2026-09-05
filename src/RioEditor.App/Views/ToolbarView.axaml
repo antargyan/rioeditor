@@ -1,0 +1,130 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RioEditor.App.ViewModels"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             x:Class="RioEditor.App.Views.ToolbarView"
+             x:DataType="vm:ToolbarViewModel"
+             x:CompileBindings="True">
+
+  <Grid RowDefinitions="Auto,Auto">
+
+    <!-- Command strip == -->
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+      <StackPanel Orientation="Horizontal" Spacing="2" Margin="8,6" VerticalAlignment="Center">
+
+        <Button Classes="tool" Classes.active="{Binding IsBold}" Command="{Binding Bold}"
+                ToolTip.Tip="Bold (Ctrl/Cmd+B)">
+          <TextBlock Text="B" FontWeight="Bold" />
+        </Button>
+
+        <Button Classes="tool" Classes.active="{Binding IsItalic}" Command="{Binding Italic}"
+                ToolTip.Tip="Italic (Ctrl/Cmd+I)">
+          <TextBlock Text="I" FontStyle="Italic" />
+        </Button>
+
+        <Button Classes="tool" Command="{Binding Strikethrough}" ToolTip.Tip="Strikethrough">
+          <TextBlock Text="S" TextDecorations="Strikethrough" />
+        </Button>
+
+        <Button Classes="tool" Classes.active="{Binding IsInlineCode}" Command="{Binding InlineCode}"
+                ToolTip.Tip="Inline code (Ctrl/Cmd+E)">
+          <TextBlock Text="&lt;/&gt;" FontFamily="Menlo,Consolas,monospace" FontSize="11" />
+        </Button>
+
+        <Separator Classes="tool" />
+
+        <!-- Headings 1..6. CommandParameter carries the level; 0 clears formatting. -->
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Heading 1">
+          <Button.CommandParameter>
+            <sys:Int32>1</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="H1" FontWeight="SemiBold" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Heading 2">
+          <Button.CommandParameter>
+            <sys:Int32>2</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="H2" FontWeight="SemiBold" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Heading 3">
+          <Button.CommandParameter>
+            <sys:Int32>3</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="H3" FontWeight="SemiBold" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Heading 4">
+          <Button.CommandParameter>
+            <sys:Int32>4</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="H4" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Heading 5">
+          <Button.CommandParameter>
+            <sys:Int32>5</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="H5" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Heading 6">
+          <Button.CommandParameter>
+            <sys:Int32>6</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="H6" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Heading}" ToolTip.Tip="Clear heading">
+          <Button.CommandParameter>
+            <sys:Int32>0</sys:Int32>
+          </Button.CommandParameter>
+          <TextBlock Text="¶" />
+        </Button>
+
+        <Separator Classes="tool" />
+
+        <Button Classes="tool" Command="{Binding OpenLinkEditor}" ToolTip.Tip="Insert link (Ctrl/Cmd+K)">
+          <TextBlock Text="🔗" />
+        </Button>
+        <Button Classes="tool" Command="{Binding CodeBlock}" ToolTip.Tip="Code block">
+          <TextBlock Text="{}{ }" FontFamily="Menlo,Consolas,monospace" FontSize="11" />
+        </Button>
+        <Button Classes="tool" Command="{Binding Quote}" ToolTip.Tip="Block quote">
+          <TextBlock Text="❝" />
+        </Button>
+
+        <Separator Classes="tool" />
+
+        <Button Classes="tool" Command="{Binding BulletList}" ToolTip.Tip="Bullet list">
+          <TextBlock Text="•—" />
+        </Button>
+        <Button Classes="tool" Command="{Binding OrderedList}" ToolTip.Tip="Numbered list">
+          <TextBlock Text="1." />
+        </Button>
+        <Button Classes="tool" Command="{Binding TaskList}" ToolTip.Tip="Task list">
+          <TextBlock Text="☑" />
+        </Button>
+
+        <Separator Classes="tool" />
+
+        <Button Classes="tool" Command="{Binding InsertTable}" ToolTip.Tip="Insert 3×3 table">
+          <TextBlock Text="▦" />
+        </Button>
+        <Button Classes="tool" Command="{Binding HorizontalRule}" ToolTip.Tip="Horizontal rule">
+          <TextBlock Text="—" />
+        </Button>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Link editor: an inline strip rather than a modal, so the caret is never lost -->
+    <Border Grid.Row="1"
+            IsVisible="{Binding IsLinkEditorOpen}"
+            Background="{DynamicResource SystemControlBackgroundListLowBrush}"
+            Padding="10,8">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="URL" VerticalAlignment="Center" Opacity="0.7" />
+        <TextBox Text="{Binding LinkUrl}" Width="360" Watermark="https://example.com" />
+        <Button Content="Insert" Command="{Binding ApplyLink}" IsDefault="True" />
+        <Button Content="Cancel" Command="{Binding CancelLink}" IsCancel="True" />
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RioEditor.App/RioEditor.App.csproj" />
+    <Project Path="src/RioEditor.Browser/RioEditor.Browser.csproj" />
+    <Project Path="src/RioEditor.Core/RioEditor.Core.csproj" />
+    <Project Path="src/RioEditor.Desktop.MacOS/RioEditor.Desktop.MacOS.csproj" />
+    <Project Path="src/RioEditor.Desktop/RioEditor.Desktop.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>RioEditor.Desktop</RootNamespace>
+    <AssemblyName>RioEditor</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- The WebView packages are netstandard2.0; NU1701 is expected and harmless. -->
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)" />
+
+    <!-- Native WebView backends: WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS. -->
+    <PackageReference Include="WebView.Avalonia" Version="$(AvaloniaWebViewVersion)" />
+    <PackageReference Include="WebView.Avalonia.Desktop" Version="$(AvaloniaWebViewVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RioEditor.App\RioEditor.App.csproj" />
+  </ItemGroup>
+
+</Project>

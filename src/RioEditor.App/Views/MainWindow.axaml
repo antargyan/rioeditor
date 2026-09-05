@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:RioEditor.App.ViewModels"
+        xmlns:views="clr-namespace:RioEditor.App.Views"
+        x:Class="RioEditor.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        x:CompileBindings="True"
+        Title="{Binding Title}"
+        Width="1180" Height="780"
+        MinWidth="520" MinHeight="380"
+        WindowStartupLocation="CenterScreen">
+
+  <views:MainView />
+</Window>

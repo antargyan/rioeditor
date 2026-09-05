@@ -1,3 +1,15 @@
+<p align="center">
+  <img src="docs/banner.png" alt="RioEditor" width="820">
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue.svg" alt="MIT licence"></a>
+  <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
+  <img src="https://img.shields.io/badge/Avalonia-11.3-8B44AC" alt="Avalonia 11.3">
+  <img src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS%20%C2%B7%20Android%20%C2%B7%20Web-lightgrey" alt="Platforms">
+  <a href="https://github.com/sponsors/antargyan"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-ff69b4" alt="Sponsor"></a>
+</p>
+
 # RioEditor
 
 A Typora-style WYSIWYG Markdown editor built with **AvaloniaUI 11.3** on **.NET 10**, running on
@@ -462,6 +474,11 @@ Pinned centrally in `Directory.Build.props`:
 stack is pinned there for consistency.
 
 ---
+
+## Releasing
+
+Packaging, signing and store-submission requirements for every platform are in
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
 

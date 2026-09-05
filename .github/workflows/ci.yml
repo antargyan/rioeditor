@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  # RioEditor.slnx contains heads that need the macos/ios/android workloads, so a single
+  # "build the solution" job cannot work on one runner. Each head is built where it belongs.
+
+  core:
+    name: Core, shared UI, desktop and WebAssembly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install the WebAssembly workload
+        run: dotnet workload install wasm-tools
+
+      - name: Build platform-neutral projects
+        run: |
+          dotnet build src/RioEditor.Core    -c Release --warnaserror
+          dotnet build src/RioEditor.App     -c Release --warnaserror
+          dotnet build src/RioEditor.Desktop -c Release --warnaserror
+          dotnet build src/RioEditor.Browser -c Release --warnaserror
+
+      - name: Publish the WebAssembly site
+        run: dotnet publish src/RioEditor.Browser -c Release -o publish/wasm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-site
+          path: publish/wasm/wwwroot
+          retention-days: 14
+
+  apple:
+    name: macOS and iOS
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install the Apple workloads
+        run: sudo dotnet workload install macos ios
+
+      - name: Build the macOS head
+        run: dotnet build src/RioEditor.Desktop.MacOS -c Release
+
+      - name: Build the iOS head (simulator)
+        run: dotnet build src/RioEditor.iOS -c Release -f net10.0-ios -r iossimulator-arm64
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '17'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-android-
+
+      - name: Install the Android workload
+        run: dotnet workload install android
+
+      - name: Build the Android head
+        # ANDROID_HOME and a JDK are already present on the hosted image.
+        run: dotnet build src/RioEditor.Android -c Release

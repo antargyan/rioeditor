@@ -12,7 +12,7 @@
     <RootNamespace>RioEditor.iOS</RootNamespace>
     <AssemblyName>RioEditor</AssemblyName>
     <ApplicationTitle>RioEditor</ApplicationTitle>
-    <ApplicationId>com.rioeditor.app</ApplicationId>
+    <ApplicationId>ai.rioeditor.editor</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
   </PropertyGroup>

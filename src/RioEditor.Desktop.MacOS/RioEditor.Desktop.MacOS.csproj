@@ -16,7 +16,7 @@
     <RootNamespace>RioEditor.Desktop.MacOS</RootNamespace>
     <AssemblyName>RioEditor</AssemblyName>
     <ApplicationTitle>RioEditor</ApplicationTitle>
-    <ApplicationId>com.rioeditor.app</ApplicationId>
+    <ApplicationId>ai.rioeditor.editor</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
     <!-- Avalonia owns the NSApplication run loop; the SDK must not generate its own entry point. -->

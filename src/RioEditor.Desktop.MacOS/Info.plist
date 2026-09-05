@@ -7,7 +7,7 @@
   <key>CFBundleDisplayName</key>
   <string>RioEditor</string>
   <key>CFBundleIdentifier</key>
-  <string>com.rioeditor.app</string>
+  <string>ai.rioeditor.editor</string>
   <key>CFBundleVersion</key>
   <string>1.0.0</string>
   <key>CFBundleShortVersionString</key>

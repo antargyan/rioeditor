@@ -11,7 +11,7 @@
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <RootNamespace>RioEditor.Android</RootNamespace>
     <AssemblyName>RioEditor</AssemblyName>
-    <ApplicationId>com.rioeditor.app</ApplicationId>
+    <ApplicationId>ai.rioeditor.editor</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
     <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>

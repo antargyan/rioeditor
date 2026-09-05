@@ -135,6 +135,39 @@ to `main` republishes. This works today with no secrets at all.
 
 ## Version numbering
 
-One source of truth is missing: `ApplicationDisplayVersion` and `ApplicationVersion` are currently
-hard-coded per head. Before the first release, lift them into `Directory.Build.props` so a tag can
-drive every platform's version at once.
+`Directory.Build.props` holds the single source of truth:
+
+- **`RioVersion`** — the semantic, user-visible version (`1.0.0`)
+- **`RioBuild`** — a monotonic build number, which the stores require to increase on *every* upload
+  regardless of whether the display version changed
+
+Both are ordinary MSBuild properties, so CI overrides them from a tag without editing any file —
+command-line properties are global in MSBuild and win over the defaults:
+
+```bash
+dotnet build -p:RioVersion=1.4.2 -p:RioBuild=57
+```
+
+Verified end to end on all three store platforms:
+
+| Platform | Field | Value with the override above |
+| --- | --- | --- |
+| macOS / iOS | `CFBundleShortVersionString` | `1.4.2` |
+| macOS / iOS | `CFBundleVersion` | `57` |
+| Android | `android:versionName` | `1.4.2` |
+| Android | `android:versionCode` | `57` |
+
+**Do not reintroduce `CFBundleVersion` or `CFBundleShortVersionString` into the Info.plist files.**
+The Apple SDKs only inject those keys when the plist does not already define them, so a hard-coded
+value silently wins and every build ships the same version — which App Store Connect rejects on the
+second upload, confusingly, as a duplicate build number.
+
+In a release workflow, derive both from the tag:
+
+```yaml
+- run: |
+    VERSION=${GITHUB_REF_NAME#v}          # v1.4.2 -> 1.4.2
+    echo "RIO_VERSION=$VERSION"      >> $GITHUB_ENV
+    echo "RIO_BUILD=$GITHUB_RUN_NUMBER" >> $GITHUB_ENV
+- run: dotnet publish ... -p:RioVersion=$RIO_VERSION -p:RioBuild=$RIO_BUILD
+```

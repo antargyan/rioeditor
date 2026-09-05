@@ -8,10 +8,6 @@
   <string>RioEditor</string>
   <key>CFBundleIdentifier</key>
   <string>ai.rioeditor.editor</string>
-  <key>CFBundleVersion</key>
-  <string>1.0</string>
-  <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
   <key>XSAppIconAssets</key>
   <string>Assets.xcassets/AppIcon.appiconset</string>
   <key>LSRequiresIPhoneOS</key>

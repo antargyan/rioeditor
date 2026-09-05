@@ -13,8 +13,6 @@
     <AssemblyName>RioEditor</AssemblyName>
     <ApplicationTitle>RioEditor</ApplicationTitle>
     <ApplicationId>ai.rioeditor.editor</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
   </PropertyGroup>
 
   <ItemGroup>

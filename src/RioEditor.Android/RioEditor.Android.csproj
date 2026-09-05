@@ -12,8 +12,6 @@
     <RootNamespace>RioEditor.Android</RootNamespace>
     <AssemblyName>RioEditor</AssemblyName>
     <ApplicationId>ai.rioeditor.editor</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
     <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>
   </PropertyGroup>
 

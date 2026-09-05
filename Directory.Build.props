@@ -9,6 +9,34 @@
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
   </PropertyGroup>
 
+  <!--
+    Single source of truth for the product version.
+
+    RioVersion is the semantic, user-visible version; RioBuild is a monotonic build number that
+    the stores require to increase with every upload, independently of the display version.
+    Both are plain properties, so CI overrides them from a tag without editing anything:
+
+        dotnet build -p:RioVersion=1.2.0 -p:RioBuild=57
+
+    (Command-line properties are global in MSBuild and win over the values below.)
+  -->
+  <PropertyGroup>
+    <RioVersion>1.0.0</RioVersion>
+    <RioBuild>1</RioBuild>
+
+    <!-- .NET assembly identity -->
+    <Version>$(RioVersion)</Version>
+    <AssemblyVersion>$(RioVersion).0</AssemblyVersion>
+    <FileVersion>$(RioVersion).$(RioBuild)</FileVersion>
+    <InformationalVersion>$(RioVersion)</InformationalVersion>
+
+    <!-- Apple: CFBundleShortVersionString / CFBundleVersion.
+         Android: android:versionName / android:versionCode.
+         The platform SDKs map these two properties onto those fields. -->
+    <ApplicationDisplayVersion>$(RioVersion)</ApplicationDisplayVersion>
+    <ApplicationVersion>$(RioBuild)</ApplicationVersion>
+  </PropertyGroup>
+
   <!-- Single source of truth for every third-party version used by the solution. -->
   <PropertyGroup>
     <AvaloniaVersion>11.3.9</AvaloniaVersion>

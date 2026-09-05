@@ -460,3 +460,18 @@ Pinned centrally in `Directory.Build.props`:
 
 `Avalonia.ReactiveUI` is the version ceiling: it is published up to 11.3.9, so the whole Avalonia
 stack is pinned there for consistency.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Antargyan.
+
+Third-party components keep their own licences, all permissive: Avalonia (MIT), WebView.Avalonia
+(MIT), HtmlAgilityPack (MIT), Markdig (BSD-2-Clause). Mermaid (MIT) and KaTeX (MIT) are loaded from
+a CDN at runtime and are not redistributed here.
+
+## Sponsoring
+
+RioEditor is free and open source. If it earns a place in your workflow,
+[sponsoring](https://github.com/sponsors/antargyan) keeps it maintained.

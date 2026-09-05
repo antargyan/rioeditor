@@ -10,7 +10,7 @@ confusing ways months later.
 | Target | Distribution | Signing needed | Ready? |
 | --- | --- | --- | --- |
 | WebAssembly | GitHub Pages | none | **Live** — `pages.yml` deploys every push to `main` |
-| Windows | GitHub Release (zip), optionally MSIX | Authenticode (optional) | Buildable; unsigned binaries warn on SmartScreen |
+| Windows | Microsoft Store (MSIX) | none — the Store re-signs | **Package builds and validates**; awaiting listing content |
 | Linux | GitHub Release (tar.gz / AppImage) | none | Buildable |
 | macOS | Notarized DMG, and/or Mac App Store | Apple Developer ID or Mac App Distribution | Needs Apple account |
 | iOS | App Store / TestFlight | Apple Distribution | Needs Apple account |
@@ -113,12 +113,99 @@ App Distribution** certificate and a separate app record.
 
 Ship both architectures: `-r osx-arm64` and `-r osx-x64`, joined with `lipo`, or two DMGs.
 
-## Windows and Linux
+## Windows → Microsoft Store
 
-No accounts needed. Tag → publish self-contained binaries → attach to a GitHub Release.
+Built by `packaging/windows/build-msix.ps1`, which publishes both architectures, packs them and
+bundles the result. MSIX rather than an EXE/MSI listing for one decisive reason: **the Store
+re-signs MSIX packages with its own certificate**, so there is no Authenticode certificate to buy
+or renew, and no SmartScreen warning. Updates and clean uninstall come free with it.
 
-An Authenticode certificate (~US$200–400/year from a CA) removes the SmartScreen warning on
-Windows. Worth deferring until there are users to warn.
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File packaging\windows\build-msix.ps1 `
+    -IdentityName 'CDUCK.RioEditorMarkDownEditor' `
+    -Publisher 'CN=48B5EDEA-A9A5-4B78-A27C-36E0547C8A22' `
+    -PublisherDisplayName 'ANTARGYAN CLOUDWORKS LLP'
+```
+
+Needs the Windows SDK for `makeappx.exe` and `signtool.exe`; the script finds the newest installed
+one itself. Output lands in `publish/store/`:
+
+| File | Purpose |
+| --- | --- |
+| `RioEditor_<version>.msixbundle` | upload this — unsigned is correct, the Store signs it |
+| `RioEditor_<version>_test-signed.msixbundle` | self-signed, for installing on your own machine |
+| `RioEditorTest.cer` | trust once to install the test-signed bundle |
+
+Each architecture is published **self-contained** (~50 MB each, ~98 MB bundled): an MSIX cannot run
+a prerequisite installer, so the .NET runtime travels inside the package.
+
+### The four values that must match Partner Center
+
+Three come from **Product → Product identity** and one from **Manage app names**. Every one of them
+is validated on upload, and three of the four produce an outright rejection:
+
+| Manifest field | Parameter | Current value |
+| --- | --- | --- |
+| `Package/Identity/Name` | `-IdentityName` | `CDUCK.RioEditorMarkDownEditor` |
+| `Package/Identity/Publisher` | `-Publisher` | `CN=48B5EDEA-A9A5-4B78-A27C-36E0547C8A22` |
+| `Package/Properties/PublisherDisplayName` | `-PublisherDisplayName` | `ANTARGYAN CLOUDWORKS LLP` |
+| `Package/Properties/DisplayName` | `-DisplayName` | `RioEditor : MarkDown Editor` |
+
+**`DisplayName` must be a name you have reserved**, not a friendly label. Setting it to `RioEditor`
+fails the upload with *"uses a display name that you have not reserved"* even though the identity
+name contains it. Reserve additional names under **Product management → Manage app names** if you
+want a shorter caption under the Start-menu tile.
+
+There is a good self-check for the other two: Windows derives the Package Family Name from the
+identity name and publisher, so registering the package locally and comparing
+`(Get-AppxPackage).PackageFamilyName` against the PFN in Partner Center
+(`CDUCK.RioEditorMarkDownEditor_ehpcqv5z78m2c`) proves both are byte-exact before you upload.
+
+### Versioning
+
+`-Version` defaults to `RioVersion` from `Directory.Build.props` with `.0` appended, so the package
+does not keep a second copy of the product version.
+
+`RioBuild` deliberately does *not* become the fourth field. The Store reserves the revision and
+rejects anything non-zero there, so a second upload of the same `RioVersion` needs `RioVersion`
+bumped (or `-Version` passed explicitly) — the Store will not accept a version it has already seen.
+
+### Tile artwork
+
+`packaging/windows/generate-icons.ps1` composites `src/RioEditor.App/Assets/icon.png` — the same
+glyph Android, iOS and macOS use — into all 25 tile sizes, so Windows cannot drift from the other
+platforms. Change the artwork there and re-run the script.
+
+Two decisions worth knowing before editing it:
+
+- **The tiles are transparent PNGs, not white ones.** Windows fills a tile with the manifest's
+  `VisualElements/@BackgroundColor` and draws its own plate behind the plated `targetsize` assets;
+  baking a background into the PNG fights both. `BackgroundColor` is `#FFFFFF`, matching
+  `rio_icon_background` in the Android adaptive icon and the ground of the macOS iconset.
+- **The glyph fills less of the canvas as tiles grow** (88% at 16px down to 62% at 310px) — the
+  same reasoning as the Android adaptive icon's 18% foreground inset.
+
+The `.exe` icon is *not* generated here; `src/RioEditor.Desktop/RioEditor.ico` is checked in and
+referenced by the csproj.
+
+### File associations
+
+The manifest claims `.md` and `.markdown`, which puts RioEditor in the *Open with* list. Windows
+starts a packaged full-trust app with the chosen file's path on its command line, so this needs no
+association-specific code — `Program.Main` hands its arguments to `StartupDocument`.
+
+Only those two extensions, deliberately. Claiming `.txt`, or the long tail of `.mdown`/`.mkd`,
+draws Store review questions and annoys users whose defaults get hijacked.
+
+### Before submitting
+
+Partner Center still needs screenshots, a description, an age rating and a privacy policy URL, and
+**Device family availability → Windows 10/11 Desktop must be ticked** or the product ships to
+nobody. The listing icon is generated as `packaging/windows/Images/StoreListing-300x300.png`.
+
+## Linux
+
+No account needed. Tag → publish self-contained binaries → attach to a GitHub Release.
 
 ## WebAssembly → GitHub Pages
 
@@ -143,9 +230,11 @@ minutes per build; worth enabling once the demo gets real traffic.
 ## Suggested order
 
 1. **WASM on Pages** — free, immediate, and gives the README a live demo link.
-2. **GitHub Releases for Windows, macOS, Linux** — unsigned first, so people can try it.
-3. **Apple Developer Program** — unlocks notarised macOS *and* iOS together.
-4. **Google Play** — cheapest store, and the Android head is the best tested of the mobile two.
+2. **Microsoft Store** — no certificate to buy, because the Store signs the package, and the
+   identity is already reserved; the remaining work is listing content, not engineering.
+3. **GitHub Releases for macOS and Linux** — unsigned first, so people can try it.
+4. **Apple Developer Program** — unlocks notarised macOS *and* iOS together.
+5. **Google Play** — cheapest store, and the Android head is the best tested of the mobile two.
 
 ## Version numbering
 

@@ -31,6 +31,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly IExportService _export;
     private readonly ISponsorPolicy _sponsor;
     private readonly ILinkService _links;
+    private readonly IStartupDocument _startup;
     private readonly CompositeDisposable _disposables = new();
 
     private readonly ObservableAsPropertyHelper<string> _title;
@@ -53,7 +54,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         IKeyValueStore store,
         IExportService export,
         ISponsorPolicy sponsor,
-        ILinkService links)
+        ILinkService links,
+        IStartupDocument startup)
     {
         _bridge = bridge;
         _files = files;
@@ -64,6 +66,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _export = export;
         _sponsor = sponsor;
         _links = links;
+        _startup = startup;
 
         Toolbar = new ToolbarViewModel(bridge);
 
@@ -229,7 +232,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         if (!_surface.IsAvailable)
         {
-            StatusMessage = _surface.UnavailableReason ?? "No WebView available on this platform.";
+            // The full explanation is several lines and belongs in the diagnostic panel, which is
+            // filling the editor area by now; the status bar only has room to agree with it.
+            StatusMessage = "No editing surface";
             return;
         }
 
@@ -297,6 +302,26 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         IsEditorReady = true;
         var settings = _settings.Current;
+
+        // 0. A file named on the command line — which is how Windows hands over a document
+        //    opened through the .md association — outranks anything from the previous session.
+        if (_startup.Path is { } launchPath && _files.Exists(launchPath))
+        {
+            var launchText = await _files.ReadAsync(launchPath).ConfigureAwait(true);
+            if (launchText is not null)
+            {
+                Document.FilePath = launchPath;
+                await LoadIntoEditorAsync(launchText).ConfigureAwait(true);
+                Document.IsDirty = false;
+
+                // Make it the session's document too, so a later plain launch reopens it.
+                _settings.Current.LastOpenedFile = launchPath;
+                await _settings.SaveAsync().ConfigureAwait(true);
+
+                StatusMessage = $"Opened {Document.FileName}";
+                return;
+            }
+        }
 
         // 1. A real file from the previous session, when the platform has a file system.
         if (!string.IsNullOrEmpty(settings.LastOpenedFile) && _files.Exists(settings.LastOpenedFile))

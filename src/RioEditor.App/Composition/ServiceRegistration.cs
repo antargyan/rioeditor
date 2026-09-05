@@ -35,6 +35,10 @@ public static class ServiceRegistration
         services.AddSingleton<ILinkService, LinkService>();
         services.AddSingleton<ISponsorPolicy, SponsorPolicy>();
 
+        // Heads launched with a command line replace this after AddRioEditor(); the rest never
+        // receive one, so "nothing to open" is the right shared default.
+        services.AddSingleton(StartupDocument.None);
+
         // --- View models -------------------------------------------------------
         services.AddSingleton<MainViewModel>();
 

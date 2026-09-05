@@ -251,7 +251,15 @@ engine needed no changes at all**. Avalonia and the ObjC runtime bridge share `N
 without conflict.
 
 The failure path stayed useful throughout: `WebViewEditorSurface` catches backend creation failures
-and `MainView` shows a diagnostic panel rather than crashing or showing an empty window. If you
+and `MainView` shows a diagnostic panel rather than crashing or showing an empty window.
+
+**The diagnostic panel has two entry points, and only one of them is an exception.** `new WebView()`
+throwing is the easy case. The common one on Windows is a *missing WebView2 runtime*, where the
+Avalonia control constructs perfectly and the native backend behind it fails later, arriving as
+`WebViewCreated` with `IsSucceed = false`. A surface therefore cannot answer `IsAvailable` until
+after `CreateView()` has run, and it may change its answer afterwards — hence
+`IEditorSurface.BecameUnavailable`, which the shell subscribes to. Getting this wrong is silent:
+the app shows an empty editor area and says nothing at all. If you
 ever need a fourth backend, implementing `IEditorSurface` + `IWebViewTransport` (~150 lines) and
 registering it in `Program.BuildServices()` is the whole job.
 
@@ -265,6 +273,13 @@ quote, bullet/numbered/task lists, 3×3 table, horizontal rule, theme toggle.
 **Shortcuts** — `Ctrl/Cmd+B` bold, `+I` italic, `+E` inline code, `+K` link, `+1…6` heading,
 `+0` paragraph, `Ctrl+N/O/S/Shift+S` file commands, `Ctrl+Alt+T` theme, `Tab`/`Shift+Tab` list
 indent.
+
+**Opening a file at launch** — a path on the command line is opened at startup, ahead of the
+previous session's file, and becomes the new "last opened file". On Windows this is also what makes
+the `.md` file association work: a packaged app opened through *Open with* is started with the
+file's path on its command line. `StartupDocument` takes the first argument naming a file that
+exists and ignores everything else, so a stale path or a stray switch yields a normal session
+rather than a failed start.
 
 **File I/O** — open/save through Avalonia's `IStorageProvider` (native dialogs on desktop, File
 System Access API or a download in the browser), autosave every 5 seconds, dirty tracking in the
@@ -368,8 +383,36 @@ Two Android-specific traps, both hit and fixed here:
    the assemblies separately, or build with `-p:EmbedAssembliesIntoApk=true` as the commands in
    section 4 do.
 
-The **Windows/Linux** desktop head builds and starts; its WebView2 and WebKitGTK backends are the
-well-trodden paths for those platforms and were not exercised on this machine.
+The **Windows** desktop head was run and photographed, and doing so turned up a real bug that had
+been hiding behind "it builds and starts". The editor was blank: `OnNavigationStarting` allowed only
+`about:` URLs through as "our own document", but WebView2 loads `HtmlContent` by navigating to a
+`data:text/html;base64,...` URL. The guard cancelled the editor document itself. Nothing threw and
+nothing logged — the WebView simply stayed empty, `ready` never arrived, and session restore never
+ran, so the welcome document, the last opened file and the word count were all silently missing.
+
+The guard now recognises both shapes. With that fixed, the welcome document, a file opened from the
+command line, live typing and session restore all work on Windows, packaged and unpackaged.
+
+**If you add a backend, check what its "load HTML" actually navigates to.** Two of the three desktop
+backends say `about:blank` and the third does not, and the failure is completely silent.
+
+### When there is no WebView
+
+The panel that replaces the editor is the only thing a user in this state will ever read, so it is
+written for them rather than for us: it names the missing component, says it is free and safe to
+install, and gives the one address or command that fixes it. The exception text is kept apart in
+`UnavailableDetail` and rendered small, dim and condensed to a single line — enough to identify the
+fault in a bug report, not enough to bury the instructions above it. Both blocks are
+`SelectableTextBlock`, because there is no working WebView here to click a link with, so copying the
+URL out is the only way forward.
+
+Verified by pointing `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` at a folder that does not exist, which
+reproduces the missing-runtime failure exactly: the panel appears with the real
+`WebView2RuntimeNotFoundException` beneath it, through the asynchronous `WebViewCreated` path that
+previously showed nothing.
+
+The **Linux** head builds and starts; WebKitGTK reports `about:blank` like WKWebView, but it was not
+exercised on this machine.
 
 ### Responsive chrome
 

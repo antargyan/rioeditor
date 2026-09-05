@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest template for the RioEditor Windows head.
+
+  This is a *template*: build-msix.ps1 substitutes the {Tokens} below and writes the
+  real AppxManifest.xml into the staging folder. Nothing here is edited by hand for a
+  build — pass the values as parameters instead, so the local test identity can never
+  be committed on top of the Store identity.
+
+  The three identity values must match Partner Center byte-for-byte
+  (Product -> Product identity), or the upload is rejected:
+    {IdentityName}         e.g. 12345YourCompany.RioEditor
+    {Publisher}            e.g. CN=ABCDEF12-3456-7890-ABCD-EF1234567890
+    {PublisherDisplayName} e.g. Your Company
+
+  {DisplayName} must be a name RESERVED for this product, not a friendly label. The Store
+  rejects the upload with "uses a display name that you have not reserved" otherwise. Reserve
+  extra names under Product management -> Manage app names if you want a shorter tile caption.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <!-- Version must be four parts and the revision must be 0; the Store reserves it. -->
+  <Identity
+    Name="{IdentityName}"
+    Publisher="{Publisher}"
+    Version="{Version}"
+    ProcessorArchitecture="{ProcessorArchitecture}" />
+
+  <Properties>
+    <DisplayName>{DisplayName}</DisplayName>
+    <PublisherDisplayName>{PublisherDisplayName}</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <!-- 17763 (1809) is the floor for a reliable Evergreen WebView2 and for
+         desktop-bridge packages in the Store. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="RioEditor" Executable="RioEditor.exe" EntryPoint="Windows.FullTrustApplication">
+      <!--
+        The tile assets are transparent PNGs of the app glyph; BackgroundColor is what actually
+        colours the tiles and the plates behind the target-size icons. White matches
+        rio_icon_background in the Android adaptive icon and the ground of the macOS iconset, so
+        Windows looks like the platforms that are already shipping.
+      -->
+      <uap:VisualElements
+        DisplayName="{DisplayName}"
+        Description="A Typora-style WYSIWYG Markdown editor: the rendered document is the one you type into."
+        BackgroundColor="#FFFFFF"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Images\Wide310x150Logo.png"
+          Square71x71Logo="Images\Square71x71Logo.png"
+          Square310x310Logo="Images\Square310x310Logo.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Images\SplashScreen.png" BackgroundColor="#FFFFFF" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!--
+          Puts RioEditor in the "Open with" list for Markdown, and lets the user make it the
+          default. Windows starts the app with the chosen file's path on its command line, which
+          Program.Main passes to StartupDocument.
+
+          Deliberately only the two extensions people actually use. Claiming .txt, or the long
+          tail of .mdown/.mkd/.mdtext, is the kind of over-reach that draws Store review
+          questions and annoys users whose defaults get hijacked.
+        -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="markdown">
+            <uap:DisplayName>Markdown document</uap:DisplayName>
+            <uap:Logo>Images\StoreLogo.png</uap:Logo>
+            <uap:InfoTip>Open with RioEditor</uap:InfoTip>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.md</uap:FileType>
+              <uap:FileType>.markdown</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- A packaged Win32 app is full trust by definition; this is the only capability
+         it needs. Adding more triggers extra Store review for no benefit. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+</Package>

@@ -10,6 +10,10 @@
   <a href="https://github.com/sponsors/antargyan"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-ff69b4" alt="Sponsor"></a>
 </p>
 
+<p align="center">
+  <b><a href="https://antargyan.github.io/rioeditor/">Try it in your browser →</a></b>
+</p>
+
 # RioEditor
 
 A Typora-style WYSIWYG Markdown editor built with **AvaloniaUI 11.3** on **.NET 10**, running on

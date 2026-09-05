@@ -1,0 +1,83 @@
+name: Deploy WebAssembly to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required by actions/deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel an in-flight deployment; queue behind it instead.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-pages-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-pages-
+
+      - name: Install the WebAssembly workload
+        run: dotnet workload install wasm-tools
+
+      - name: Publish
+        run: dotnet publish src/RioEditor.Browser -c Release -o publish/wasm
+
+      - name: Rewrite the base href for the project sub-path
+        # A project site is served from https://<owner>.github.io/<repo>/, so the published
+        # <base href="/"> would send every asset request to the domain root and the app would
+        # never boot. A user/organisation site (<owner>.github.io) stays at the root.
+        run: |
+          REPO='${{ github.event.repository.name }}'
+          OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          if [ "$REPO" = "$OWNER.github.io" ]; then BASE="/"; else BASE="/$REPO/"; fi
+          echo "Base href: $BASE"
+          sed -i "s|<base href=\"/\" */>|<base href=\"$BASE\" />|" publish/wasm/wwwroot/index.html
+          grep -o '<base href="[^"]*"' publish/wasm/wwwroot/index.html
+
+      - name: Drop pre-compressed duplicates
+        # Pages negotiates its own compression, so the .gz/.br copies are dead weight:
+        # 37 MB of artefact becomes 22 MB, and the loader requests the plain files anyway.
+        run: find publish/wasm/wwwroot \( -name '*.gz' -o -name '*.br' \) -delete
+
+      - name: Add .nojekyll
+        # Jekyll strips directories beginning with an underscore, which would remove the
+        # entire _framework folder. deploy-pages does not run Jekyll, but this keeps the
+        # output correct if the site is ever served from a branch instead.
+        run: touch publish/wasm/wwwroot/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publish/wasm/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

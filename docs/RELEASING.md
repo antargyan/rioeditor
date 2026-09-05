@@ -9,7 +9,7 @@ confusing ways months later.
 
 | Target | Distribution | Signing needed | Ready? |
 | --- | --- | --- | --- |
-| WebAssembly | GitHub Pages (or any static host) | none | **Yes** — CI already publishes the site as an artifact |
+| WebAssembly | GitHub Pages | none | **Live** — `pages.yml` deploys every push to `main` |
 | Windows | GitHub Release (zip), optionally MSIX | Authenticode (optional) | Buildable; unsigned binaries warn on SmartScreen |
 | Linux | GitHub Release (tar.gz / AppImage) | none | Buildable |
 | macOS | Notarized DMG, and/or Mac App Store | Apple Developer ID or Mac App Distribution | Needs Apple account |
@@ -122,9 +122,23 @@ Windows. Worth deferring until there are users to warn.
 
 ## WebAssembly → GitHub Pages
 
-The cheapest thing to ship, and the best demo for the sponsorship page: `dotnet publish` output is
-a static site. Enable Pages on the repository, point it at the `wasm-site` artifact, and every push
-to `main` republishes. This works today with no secrets at all.
+Wired up in `.github/workflows/pages.yml`; every push to `main` republishes
+<https://antargyan.github.io/rioeditor/>. No secrets involved.
+
+**One-time setup:** repository *Settings → Pages → Build and deployment → Source: **GitHub Actions***.
+Without that the workflow runs and then fails at the deploy step.
+
+Three things the workflow does that a naive copy of `wwwroot` would miss, each verified locally by
+serving the output from a sub-path:
+
+1. **Rewrites `<base href>`** from `/` to `/rioeditor/`. A project site is not at the domain root,
+   so the published default sends every asset request to the wrong place and the app never boots.
+2. **Deletes the `.gz`/`.br` duplicates.** Publish emits three copies of everything; Pages does its
+   own compression and the loader fetches the plain files. 37 MB becomes 22 MB.
+3. **Adds `.nojekyll`**, so the `_framework` directory is never stripped as an underscore path.
+
+AOT is left off. `-p:RunAOTCompilation=true` shrinks and speeds up the payload but adds several
+minutes per build; worth enabling once the demo gets real traffic.
 
 ## Suggested order
 

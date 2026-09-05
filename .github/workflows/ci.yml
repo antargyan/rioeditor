@@ -41,7 +41,14 @@ jobs:
           dotnet build src/RioEditor.Core    -c Release --warnaserror
           dotnet build src/RioEditor.App     -c Release --warnaserror
           dotnet build src/RioEditor.Desktop -c Release --warnaserror
-          dotnet build src/RioEditor.Browser -c Release --warnaserror
+
+      # Built without --warnaserror, unlike every other project here. The WebAssembly workload
+      # emits a warning about SkiaSharp/HarfBuzz NativeFileReference items not being linked in
+      # (they are not, and do not need to be, because WasmBuildNative is off). It comes from the
+      # workload's own targets and carries NO diagnostic code, so neither NoWarn nor
+      # -warnnotaserror can exclude it, and --warnaserror turns it into a build failure.
+      - name: Build the WebAssembly head
+        run: dotnet build src/RioEditor.Browser -c Release
 
       - name: Publish the WebAssembly site
         run: dotnet publish src/RioEditor.Browser -c Release -o publish/wasm
@@ -54,7 +61,10 @@ jobs:
 
   apple:
     name: macOS and iOS
-    runs-on: macos-14
+    # macos-26, not macos-14: .NET for macOS 26.5 requires Xcode 26.6, and this is the first
+    # image that has it (and as its default). macos-14 carries 15.4 and macos-15 stops at 26.3,
+    # so both fail the SDK's Xcode check before compiling a single file.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 

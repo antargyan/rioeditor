@@ -18,6 +18,10 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)" />
 
+    <!-- Security pin, not a feature: floats Avalonia's transitive Tmds.DBus.Protocol 0.21.2 up to
+         the patched 0.21.3. See the note in Directory.Build.props. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="$(TmdsDBusProtocolVersion)" />
+
     <!-- Native WebView backends: WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS. -->
     <PackageReference Include="WebView.Avalonia" Version="$(AvaloniaWebViewVersion)" />
     <PackageReference Include="WebView.Avalonia.Desktop" Version="$(AvaloniaWebViewVersion)" />

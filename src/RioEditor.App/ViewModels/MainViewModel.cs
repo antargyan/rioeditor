@@ -35,6 +35,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private int _wordCount;
     private bool _isSaving;
     private bool _isEditorReady;
+    private bool _isCompact;
+    private bool _isFileMenuOpen;
 
     public MainViewModel(
         IWebViewBridge bridge,
@@ -76,6 +78,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         Save = ReactiveCommand.CreateFromTask(() => SaveAsync(promptForPath: false));
         SaveAs = ReactiveCommand.CreateFromTask(() => SaveAsync(promptForPath: true));
         ToggleTheme = ReactiveCommand.CreateFromTask(ToggleThemeAsync);
+        ToggleFileMenu = ReactiveCommand.Create(() => { IsFileMenuOpen = !IsFileMenuOpen; });
 
         // Surface every command failure in the status bar instead of tearing the app down.
         foreach (var command in new IObservable<Exception>[]
@@ -114,6 +117,31 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         private set => this.RaiseAndSetIfChanged(ref _wordCount, value);
     }
 
+    /// <summary>
+    /// True on phone-width layouts. Set by the view from its own size rather than from a device
+    /// check, so a narrow desktop window gets the same treatment as a phone.
+    /// </summary>
+    public bool IsCompact
+    {
+        get => _isCompact;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _isCompact, value);
+            Toolbar.IsCompact = value;
+        }
+    }
+
+    /// <summary>
+    /// Compact-layout file menu. Deliberately an inline panel rather than a Flyout: the editing
+    /// surface is a *native* WebView layered above Avalonia's canvas, so any popup that overlaps it
+    /// is occluded by it. Anything that must stay visible has to live inside the chrome.
+    /// </summary>
+    public bool IsFileMenuOpen
+    {
+        get => _isFileMenuOpen;
+        set => this.RaiseAndSetIfChanged(ref _isFileMenuOpen, value);
+    }
+
     public bool IsEditorReady
     {
         get => _isEditorReady;
@@ -129,6 +157,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ReactiveCommand<Unit, Unit> SaveAs { get; }
 
     public ReactiveCommand<Unit, Unit> ToggleTheme { get; }
+
+    public ReactiveCommand<Unit, Unit> ToggleFileMenu { get; }
 
     /// <summary>
     /// Called by the view once the surface is in the visual tree: loads settings, boots the
@@ -257,6 +287,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private async Task NewDocumentAsync()
     {
+        IsFileMenuOpen = false;
         if (Document.IsDirty)
         {
             await SaveDraftAsync().ConfigureAwait(true);
@@ -270,6 +301,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private async Task OpenAsync()
     {
+        IsFileMenuOpen = false;
         var opened = await _files.OpenAsync().ConfigureAwait(true);
         if (opened is not { } document)
         {
@@ -287,6 +319,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private async Task SaveAsync(bool promptForPath)
     {
+        IsFileMenuOpen = false;
         _isSaving = true;
         try
         {

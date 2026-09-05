@@ -336,14 +336,38 @@ Two Android-specific traps, both hit and fixed here:
 The **Windows/Linux** desktop head builds and starts; its WebView2 and WebKitGTK backends are the
 well-trodden paths for those platforms and were not exercised on this machine.
 
+### Responsive chrome
+
+The top chrome has two layouts, chosen from the control's own width (breakpoint 700px in
+`MainView.axaml.cs`) rather than from a device check — so a narrow desktop window compacts too, and
+a tablet or landscape phone keeps the full toolbar.
+
+| | Wide | Compact |
+| --- | --- | --- |
+| Row 1 | file commands · formatting toolbar · theme | ☰ · document name · theme |
+| Row 2 | — | full-width scrolling formatting bar |
+| Targets | 32×30 | 44×44 (platform minimum for a comfortable tap) |
+| File commands | inline buttons | inline row toggled by ☰ |
+
+**The compact file menu is an inline row, not a `Flyout`, and that is deliberate.** The editing
+surface is a *native* WebView layered above Avalonia's canvas, so any Avalonia popup overlapping it
+is drawn behind it. The first attempt used a `MenuFlyout` and it rendered clipped — only the part
+above the WebView was visible. Anything that must stay visible on a native-WebView platform has to
+live inside the chrome. The same applies to any future dropdown, autocomplete or context menu.
+
 ### Known limitations
 
-- The **toolbar is desktop-shaped**. On a phone only the first few commands fit and the rest scrolls
-  horizontally. A compact mobile layout (overflow menu, or a format bar above the keyboard) is not
-  implemented.
 - Mobile contenteditable has its own selection and virtual-keyboard behaviour that has not been
-  exercised beyond rendering and load.
+  exercised beyond rendering, layout and load.
+- The formatting bar does not follow the on-screen keyboard; a format bar docked above the keyboard
+  would be the next improvement.
 - No export or print.
+
+### Gotcha: stale iOS builds
+
+An incremental iOS build after changing shared code can produce
+*"Failed to load AOT module … while running in aot-only mode"* and an immediate SIGABRT. Delete the
+project's `bin`/`obj` and rebuild.
 
 ## 9. Package versions
 

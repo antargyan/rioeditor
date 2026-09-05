@@ -8,9 +8,28 @@ namespace RioEditor.App.Views;
 
 public partial class MainView : UserControl
 {
+    /// <summary>
+    /// Below this width the chrome switches to the compact layout. Driven by the control's own
+    /// size rather than a device check, so a narrow desktop window compacts too — and a tablet or
+    /// a landscape phone keeps the full toolbar.
+    /// </summary>
+    private const double CompactBreakpoint = 700;
+
     private bool _initialized;
 
-    public MainView() => InitializeComponent();
+    public MainView()
+    {
+        InitializeComponent();
+        SizeChanged += OnSizeChanged;
+    }
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.IsCompact = e.NewSize.Width < CompactBreakpoint;
+        }
+    }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
@@ -28,6 +47,9 @@ public partial class MainView : UserControl
         }
 
         _initialized = true;
+
+        // The first size change can arrive before DataContext is set, so seed it here too.
+        viewModel.IsCompact = Bounds.Width > 0 && Bounds.Width < CompactBreakpoint;
 
         // Publish the TopLevel so the file service can reach the storage provider.
         App.Services.GetRequiredService<ITopLevelProvider>().TopLevel = TopLevel.GetTopLevel(this);

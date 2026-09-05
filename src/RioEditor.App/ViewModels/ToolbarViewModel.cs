@@ -22,6 +22,7 @@ public sealed class ToolbarViewModel : ViewModelBase
     private string _linkUrl = string.Empty;
     private bool _isLinkEditorOpen;
     private bool _isDarkTheme;
+    private bool _isCompact;
 
     public ToolbarViewModel(IWebViewBridge bridge)
     {
@@ -127,6 +128,13 @@ public sealed class ToolbarViewModel : ViewModelBase
     {
         get => _isLinkEditorOpen;
         set => this.RaiseAndSetIfChanged(ref _isLinkEditorOpen, value);
+    }
+
+    /// <summary>Drives the compact style class: larger touch targets, no keyboard hints.</summary>
+    public bool IsCompact
+    {
+        get => _isCompact;
+        set => this.RaiseAndSetIfChanged(ref _isCompact, value);
     }
 
     /// <summary>Bound to the theme switch; owned by <see cref="MainViewModel"/> which does the work.</summary>

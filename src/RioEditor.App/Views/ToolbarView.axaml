@@ -4,7 +4,8 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              x:Class="RioEditor.App.Views.ToolbarView"
              x:DataType="vm:ToolbarViewModel"
-             x:CompileBindings="True">
+             x:CompileBindings="True"
+             Classes.compact="{Binding IsCompact}">
 
   <Grid RowDefinitions="Auto,Auto">
 
@@ -118,12 +119,14 @@
             IsVisible="{Binding IsLinkEditorOpen}"
             Background="{DynamicResource SystemControlBackgroundListLowBrush}"
             Padding="10,8">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="URL" VerticalAlignment="Center" Opacity="0.7" />
-        <TextBox Text="{Binding LinkUrl}" Width="360" Watermark="https://example.com" />
-        <Button Content="Insert" Command="{Binding ApplyLink}" IsDefault="True" />
-        <Button Content="Cancel" Command="{Binding CancelLink}" IsCancel="True" />
-      </StackPanel>
+      <!-- Grid rather than a fixed-width StackPanel: the field has to shrink to fit a phone. -->
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <TextBlock Grid.Column="0" Text="URL" VerticalAlignment="Center" Opacity="0.7" Margin="0,0,8,0" />
+        <TextBox Grid.Column="1" Text="{Binding LinkUrl}" MaxWidth="420"
+                 HorizontalAlignment="Stretch" Watermark="https://example.com" />
+        <Button Grid.Column="2" Content="Insert" Command="{Binding ApplyLink}" IsDefault="True" Margin="8,0,0,0" />
+        <Button Grid.Column="3" Content="Cancel" Command="{Binding CancelLink}" IsCancel="True" Margin="6,0,0,0" />
+      </Grid>
     </Border>
 
   </Grid>

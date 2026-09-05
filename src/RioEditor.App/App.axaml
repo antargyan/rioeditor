@@ -32,9 +32,29 @@
       <Setter Property="CornerRadius" Value="6" />
     </Style>
 
+    <!-- Compact / touch layout: 44px targets, the platform minimum for a comfortable tap. -->
+    <Style Selector="Button.tool.touch">
+      <Setter Property="Width" Value="44" />
+      <Setter Property="Height" Value="44" />
+    </Style>
+    <Style Selector="UserControl.compact Button.tool">
+      <Setter Property="Width" Value="44" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="FontSize" Value="15" />
+    </Style>
+    <Style Selector="UserControl.compact Separator.tool">
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Margin" Value="8,0" />
+    </Style>
+
     <Style Selector="Button.tool.wide">
       <Setter Property="Width" Value="NaN" />
       <Setter Property="Padding" Value="10,0" />
+    </Style>
+    <!-- Declared after .touch so a labelled button keeps its intrinsic width. -->
+    <Style Selector="Button.tool.touch.wide">
+      <Setter Property="Width" Value="NaN" />
+      <Setter Property="Padding" Value="14,0" />
     </Style>
 
     <Style Selector="Separator.tool">

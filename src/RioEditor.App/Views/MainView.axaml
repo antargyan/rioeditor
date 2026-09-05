@@ -17,31 +17,78 @@
 
   <DockPanel LastChildFill="True">
 
-    <!-- ===== Top chrome: file commands + formatting toolbar ================= -->
+    <!-- ===== Top chrome ====================================================
+         Two layouts, one visible at a time: a single row on desktop, and a compact
+         two-row arrangement below the width breakpoint (see MainView.axaml.cs). -->
     <Border DockPanel.Dock="Top"
             Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
             BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
             BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto">
+      <StackPanel>
 
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" Margin="8,6" VerticalAlignment="Center">
-          <Button Classes="tool wide" Command="{Binding NewDocument}" Content="New" ToolTip.Tip="New (Ctrl+N)" />
-          <Button Classes="tool wide" Command="{Binding Open}" Content="Open" ToolTip.Tip="Open (Ctrl+O)" />
-          <Button Classes="tool wide" Command="{Binding Save}" Content="Save" ToolTip.Tip="Save (Ctrl+S)" />
-          <Button Classes="tool wide" Command="{Binding SaveAs}" Content="Save As" ToolTip.Tip="Save As (Ctrl+Shift+S)" />
-          <Separator Classes="tool" />
-        </StackPanel>
+        <!-- Wide: file commands, formatting toolbar and theme all on one row. -->
+        <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding !IsCompact}">
 
-        <views:ToolbarView Grid.Column="1" DataContext="{Binding Toolbar}" />
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" Margin="8,6" VerticalAlignment="Center">
+            <Button Classes="tool wide" Command="{Binding NewDocument}" Content="New" ToolTip.Tip="New (Ctrl+N)" />
+            <Button Classes="tool wide" Command="{Binding Open}" Content="Open" ToolTip.Tip="Open (Ctrl+O)" />
+            <Button Classes="tool wide" Command="{Binding Save}" Content="Save" ToolTip.Tip="Save (Ctrl+S)" />
+            <Button Classes="tool wide" Command="{Binding SaveAs}" Content="Save As" ToolTip.Tip="Save As (Ctrl+Shift+S)" />
+            <Separator Classes="tool" />
+          </StackPanel>
 
-        <Button Grid.Column="2" Classes="tool" Margin="8,6"
-                Command="{Binding ToggleTheme}"
-                ToolTip.Tip="Toggle light / dark (Ctrl+Alt+T)">
-          <TextBlock Text="◐" FontSize="15" />
-        </Button>
+          <views:ToolbarView Grid.Column="1" DataContext="{Binding Toolbar}" />
 
-      </Grid>
+          <Button Grid.Column="2" Classes="tool" Margin="8,6"
+                  Command="{Binding ToggleTheme}"
+                  ToolTip.Tip="Toggle light / dark (Ctrl+Alt+T)">
+            <TextBlock Text="◐" FontSize="15" />
+          </Button>
+        </Grid>
+
+        <!-- Compact row 1: the file commands collapse into a menu, which leaves room for
+             the document name and keeps the theme toggle reachable by thumb. -->
+        <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding IsCompact}" Margin="6,4">
+
+          <Button Grid.Column="0" Classes="tool touch"
+                  Classes.active="{Binding IsFileMenuOpen}"
+                  Command="{Binding ToggleFileMenu}"
+                  ToolTip.Tip="File">
+            <TextBlock Text="☰" FontSize="17" />
+          </Button>
+
+          <TextBlock Grid.Column="1"
+                     Text="{Binding Document.FileName}"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     TextTrimming="CharacterEllipsis"
+                     FontWeight="SemiBold"
+                     Margin="8,0" />
+
+          <Button Grid.Column="2" Classes="tool touch" Command="{Binding ToggleTheme}" ToolTip.Tip="Toggle theme">
+            <TextBlock Text="◐" FontSize="17" />
+          </Button>
+        </Grid>
+
+        <!-- Compact file menu. An inline row, not a Flyout: a popup here would be drawn behind
+             the native WebView. Keeping it in the chrome guarantees it stays visible. -->
+        <Border IsVisible="{Binding IsFileMenuOpen}"
+                Background="{DynamicResource SystemControlBackgroundListLowBrush}"
+                Padding="6,4">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button Classes="tool wide touch" Command="{Binding NewDocument}" Content="New" />
+            <Button Classes="tool wide touch" Command="{Binding Open}" Content="Open" />
+            <Button Classes="tool wide touch" Command="{Binding Save}" Content="Save" />
+            <Button Classes="tool wide touch" Command="{Binding SaveAs}" Content="Save As" />
+          </StackPanel>
+        </Border>
+
+        <!-- Compact row 2: the formatting bar gets the full width to scroll in. -->
+        <views:ToolbarView DataContext="{Binding Toolbar}" IsVisible="{Binding IsCompact}" />
+
+      </StackPanel>
     </Border>
+
 
     <!-- ===== Status bar ==================================================== -->
     <Border DockPanel.Dock="Bottom"

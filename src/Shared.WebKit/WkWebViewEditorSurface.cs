@@ -40,10 +40,20 @@ public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport, 
 
     private WebViewHost? _host;
     private string? _failure;
+    private string? _failureDetail;
 
     public bool IsAvailable => _failure is null;
 
     public string? UnavailableReason => _failure;
+
+    public string? UnavailableDetail => _failureDetail;
+
+    /// <summary>Never raised: WKWebView is part of the OS and constructs synchronously or throws.</summary>
+    public event EventHandler? BecameUnavailable
+    {
+        add { }
+        remove { }
+    }
 
     public IWebViewTransport Transport => this;
 
@@ -61,12 +71,13 @@ public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport, 
         }
         catch (Exception e)
         {
-            _failure = $"WKWebView could not be created.\n\nDetail: {e.Message}";
-            return new TextBlock
-            {
-                Text = _failure,
-                TextWrapping = Avalonia.Media.TextWrapping.Wrap
-            };
+            _failure = "RioEditor shows your document using WKWebView, which is part of the " +
+                       "system, so this failure is unexpected.\n\n" +
+                       "Restarting RioEditor may clear it. If it keeps happening, please report " +
+                       "the details below.";
+            _failureDetail = e.Message;
+            // The shell checks IsAvailable as soon as this returns and shows the diagnostic panel.
+            return new Panel();
         }
     }
 

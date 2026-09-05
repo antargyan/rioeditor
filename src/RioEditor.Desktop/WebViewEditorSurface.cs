@@ -19,11 +19,17 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 
     private WebView? _webView;
     private bool _documentLoaded;
+    private bool _loadingOwnDocument;
     private string? _failure;
+    private string? _failureDetail;
 
     public bool IsAvailable => _failure is null;
 
     public string? UnavailableReason => _failure;
+
+    public string? UnavailableDetail => _failureDetail;
+
+    public event EventHandler? BecameUnavailable;
 
     public IWebViewTransport Transport => this;
 
@@ -41,8 +47,10 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         catch (Exception e)
         {
             // Missing WebView2 runtime on Windows, missing libwebkit2gtk on Linux, ...
-            _failure = DescribeFailure(e);
-            return new TextBlock { Text = _failure, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+            Fail(e.Message);
+            // The shell reads IsAvailable straight after this returns and swaps in the diagnostic
+            // panel, so this placeholder is never actually seen.
+            return new Panel();
         }
 
         _webView.WebMessageReceived += OnWebMessageReceived;
@@ -67,6 +75,10 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         }
 
         _documentLoaded = false;
+        // Tells OnNavigationStarting that the navigation it is about to see is our own document
+        // and not a link the user clicked.
+        _loadingOwnDocument = true;
+
         return Dispatcher.UIThread.InvokeAsync(() =>
         {
             // HtmlContent feeds the document straight into the native control; no temp files and
@@ -135,20 +147,32 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 
     private void OnWebViewCreated(object? sender, WebViewCreatedEventArgs e)
     {
+        // This, not an exception from the constructor, is how a missing WebView2 runtime usually
+        // announces itself: the Avalonia control builds fine and the *native* backend behind it
+        // fails later. Reporting it here is what stops the app showing an empty editor area.
         if (!e.IsSucceed)
         {
-            _failure = string.IsNullOrEmpty(e.Message)
-                ? "The native WebView could not be created."
-                : e.Message;
+            Fail(e.Message);
         }
     }
 
     private void OnNavigationStarting(object? sender, WebViewUrlLoadingEventArg e)
     {
-        // about:blank and the in-memory document itself must be allowed through.
         var url = e.Url?.ToString();
-        if (string.IsNullOrEmpty(url) || url.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+
+        // The editor document itself must be allowed through, and the backends disagree about
+        // what it looks like: WKWebView and WebKitGTK report about:blank, but WebView2 loads
+        // HtmlContent by navigating to a data:text/html URL. Treating only about: as our own
+        // document cancelled the document load on Windows, which left a blank editor that never
+        // signalled ready — no error, no crash, just nothing.
+        //
+        // The data: form is additionally gated on _loadingOwnDocument so that only the navigation
+        // we just triggered is allowed; a data: URL arriving from anywhere else is still a link.
+        if (string.IsNullOrEmpty(url) ||
+            url.StartsWith("about:", StringComparison.OrdinalIgnoreCase) ||
+            (_loadingOwnDocument && url.StartsWith("data:text/html", StringComparison.OrdinalIgnoreCase)))
         {
+            _loadingOwnDocument = false;
             return;
         }
 
@@ -198,14 +222,52 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         }
     }
 
-    private static string DescribeFailure(Exception e)
+    /// <summary>
+    /// Records a backend failure once and tells the shell, so the diagnostic panel can replace the
+    /// editor whether the failure arrived synchronously or from the WebViewCreated event.
+    /// </summary>
+    private void Fail(string? detail)
     {
-        var platform = OperatingSystem.IsWindows()
-            ? "Install the Microsoft Edge WebView2 Runtime (https://developer.microsoft.com/microsoft-edge/webview2/)."
-            : OperatingSystem.IsLinux()
-                ? "Install WebKitGTK: sudo apt install libwebkit2gtk-4.1-0 (or libwebkit2gtk-4.0-37 on older distributions)."
-                : "macOS uses WKWebView, which ships with the OS. If this persists the WebView backend is not compatible with this runtime.";
+        if (_failure is not null)
+        {
+            return;
+        }
 
-        return $"The editing surface needs a system WebView. {platform}\n\nDetail: {e.Message}";
+        _failure = DescribeFailure();
+        _failureDetail = string.IsNullOrWhiteSpace(detail) ? null : detail;
+
+        // The event may arrive off the UI thread; the shell touches controls in its handler.
+        Dispatcher.UIThread.Post(() => BecameUnavailable?.Invoke(this, EventArgs.Empty));
+    }
+
+    /// <summary>
+    /// Written for whoever is looking at the screen, which on Windows is usually someone who has
+    /// never heard of WebView2: name the missing thing, say it is free and safe to install, and
+    /// give the one address or command that fixes it. The exception text is kept separately in
+    /// <see cref="UnavailableDetail"/> rather than mixed into this.
+    /// </summary>
+    private static string DescribeFailure()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return "RioEditor shows your document using the Microsoft Edge WebView2 Runtime, and " +
+                   "it is not installed on this computer.\n\n" +
+                   "It is a free Microsoft component. Install it, then start RioEditor again:\n" +
+                   "https://developer.microsoft.com/microsoft-edge/webview2/";
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return "RioEditor shows your document using WebKitGTK, and it is not installed on " +
+                   "this computer.\n\n" +
+                   "Install it, then start RioEditor again:\n" +
+                   "sudo apt install libwebkit2gtk-4.1-0\n\n" +
+                   "On older distributions the package is named libwebkit2gtk-4.0-37.";
+        }
+
+        return "RioEditor shows your document using WKWebView, which is part of macOS, so this " +
+               "failure is unexpected.\n\n" +
+               "Restarting RioEditor may clear it. If it keeps happening, please report the " +
+               "details below.";
     }
 }

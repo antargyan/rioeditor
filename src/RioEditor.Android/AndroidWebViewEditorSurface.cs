@@ -27,10 +27,20 @@ public sealed class AndroidWebViewEditorSurface : IEditorSurface, IWebViewTransp
 
     private WebViewHost? _host;
     private string? _failure;
+    private string? _failureDetail;
 
     public bool IsAvailable => _failure is null;
 
     public string? UnavailableReason => _failure;
+
+    public string? UnavailableDetail => _failureDetail;
+
+    /// <summary>Never raised: the system WebView either constructs here or throws, synchronously.</summary>
+    public event EventHandler? BecameUnavailable
+    {
+        add { }
+        remove { }
+    }
 
     public IWebViewTransport Transport => this;
 
@@ -49,9 +59,13 @@ public sealed class AndroidWebViewEditorSurface : IEditorSurface, IWebViewTransp
         catch (Exception e)
         {
             // Android Go devices and some custom ROMs ship without a system WebView package.
-            _failure = "The Android System WebView is missing or disabled. Enable it in " +
-                       $"Settings → Apps → Android System WebView.\n\nDetail: {e.Message}";
-            return new TextBlock { Text = _failure, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+            _failure = "RioEditor shows your document using the Android System WebView, and it " +
+                       "is missing or disabled on this device.\n\n" +
+                       "Enable it under Settings → Apps → Android System WebView, or install it " +
+                       "from the Play Store, then start RioEditor again.";
+            _failureDetail = e.Message;
+            // The shell checks IsAvailable as soon as this returns and shows the diagnostic panel.
+            return new Panel();
         }
     }
 

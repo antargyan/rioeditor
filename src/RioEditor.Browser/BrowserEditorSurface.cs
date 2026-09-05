@@ -28,6 +28,15 @@ public sealed class BrowserEditorSurface : IEditorSurface, IWebViewTransport
 
     public string? UnavailableReason => null;
 
+    public string? UnavailableDetail => null;
+
+    /// <summary>Never raised: in WASM the browser itself is the WebView, so there is nothing to miss.</summary>
+    public event EventHandler? BecameUnavailable
+    {
+        add { }
+        remove { }
+    }
+
     public IWebViewTransport Transport => this;
 
     public Control CreateView()

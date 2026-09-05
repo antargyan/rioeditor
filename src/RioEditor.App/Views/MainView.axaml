@@ -170,11 +170,17 @@
               IsVisible="False"
               Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
               Padding="32">
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="520">
-          <TextBlock Text="The editing surface could not start"
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14" MaxWidth="520">
+          <TextBlock Text="RioEditor needs one more component"
                      FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-          <TextBlock x:Name="SurfaceFallbackReason"
-                     TextWrapping="Wrap" HorizontalAlignment="Center" Opacity="0.8" />
+          <!-- Selectable so the download address or the install command can be copied out;
+               there is no working WebView here to click a link with. -->
+          <SelectableTextBlock x:Name="SurfaceFallbackReason"
+                               TextWrapping="Wrap" Opacity="0.85" LineHeight="20" />
+          <SelectableTextBlock x:Name="SurfaceFallbackDetail"
+                               IsVisible="False"
+                               TextWrapping="Wrap" FontSize="11" FontFamily="Consolas,Menlo,monospace"
+                               Opacity="0.55" />
         </StackPanel>
       </Border>
     </Panel>

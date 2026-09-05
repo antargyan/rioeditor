@@ -54,20 +54,55 @@ public partial class MainView : UserControl
         // Publish the TopLevel so the file service can reach the storage provider.
         App.Services.GetRequiredService<ITopLevelProvider>().TopLevel = TopLevel.GetTopLevel(this);
 
-        var host = this.FindControl<ContentControl>("EditorHost")!;
-        var fallback = this.FindControl<Border>("SurfaceFallback")!;
+        // A surface cannot report whether its backend exists until it has tried to build one, so
+        // create first and ask afterwards. Checking IsAvailable before this call always saw
+        // "available" and left the diagnostic panel unreachable.
+        this.FindControl<ContentControl>("EditorHost")!.Content = viewModel.Surface.CreateView();
+        ShowFallbackIfUnavailable();
 
-        if (viewModel.Surface.IsAvailable)
-        {
-            host.Content = viewModel.Surface.CreateView();
-        }
-        else
-        {
-            fallback.IsVisible = true;
-            this.FindControl<TextBlock>("SurfaceFallbackReason")!.Text =
-                viewModel.Surface.UnavailableReason ?? "Unknown reason.";
-        }
+        // On Windows and Android the native backend is built asynchronously, so a missing runtime
+        // is reported after CreateView has already returned a control.
+        viewModel.Surface.BecameUnavailable += OnSurfaceBecameUnavailable;
 
         await viewModel.InitializeAsync();
+    }
+
+    private void OnSurfaceBecameUnavailable(object? sender, EventArgs e) => ShowFallbackIfUnavailable();
+
+    private void ShowFallbackIfUnavailable()
+    {
+        if (DataContext is not MainViewModel viewModel || viewModel.Surface.IsAvailable)
+        {
+            return;
+        }
+
+        // Hide the host as well: a half-built native WebView can otherwise keep painting over the
+        // panel, which is exactly the blank-window symptom this is here to replace.
+        this.FindControl<ContentControl>("EditorHost")!.IsVisible = false;
+        this.FindControl<Border>("SurfaceFallback")!.IsVisible = true;
+
+        this.FindControl<SelectableTextBlock>("SurfaceFallbackReason")!.Text =
+            viewModel.Surface.UnavailableReason ?? "No WebView is available on this platform.";
+
+        var detail = this.FindControl<SelectableTextBlock>("SurfaceFallbackDetail")!;
+        detail.Text = Condense(viewModel.Surface.UnavailableDetail);
+        detail.IsVisible = detail.Text is not null;
+    }
+
+    /// <summary>
+    /// Backend failures arrive with a full stack trace attached. Enough of it to identify the
+    /// error in a bug report is useful; all of it buries the instructions above it.
+    /// </summary>
+    private static string? Condense(string? detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return null;
+        }
+
+        const int limit = 220;
+        var firstLine = detail.Split('\n', StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+
+        return firstLine.Length <= limit ? firstLine : firstLine[..limit].TrimEnd() + "…";
     }
 }

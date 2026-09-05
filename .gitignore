@@ -7,3 +7,6 @@ obj/
 artifacts/
 publish/
 .DS_Store
+
+# Machine-local build paths (JDK / Android SDK)
+Directory.Build.local.props

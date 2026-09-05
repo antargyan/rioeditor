@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RioEditor.App.Composition;
 using RioEditor.App.Services;
 using RioEditor.Core.Storage;
+using RioEditor.Platform.WebKitSurface;
 
 namespace RioEditor.Desktop.MacOS;
 

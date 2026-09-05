@@ -44,6 +44,10 @@
         window.webkit.messageHandlers.rio.postMessage(json);  // WKWebView
         return true;
       }
+      if (window.rioAndroid && typeof window.rioAndroid.postMessage === 'function') {
+        window.rioAndroid.postMessage(json);                  // Android @JavascriptInterface
+        return true;
+      }
       if (typeof window.rioHostChannel === 'function') {
         window.rioHostChannel(json);                          // Avalonia WASM / WebKitGTK shim
         return true;
@@ -1098,6 +1102,10 @@
     decorate();
     var first = editor.firstElementChild;
     if (first) placeCaretAtEnd(first);
+
+    // Report the new size without going through docChanged: a freshly opened document
+    // has a word count but is emphatically not dirty.
+    postToHost({ type: 'stats', wordCount: wordCount() });
   }
 
   var api = {

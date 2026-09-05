@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using AppKit;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -9,15 +8,27 @@ using RioEditor.App.Services;
 using RioEditor.Core.Editor;
 using WebKit;
 
-namespace RioEditor.Desktop.MacOS;
+#if IOS
+using UIKit;
+using NativeView = UIKit.UIView;
+#else
+using AppKit;
+using NativeView = AppKit.NSView;
+#endif
+
+namespace RioEditor.Platform.WebKitSurface;
 
 /// <summary>
-/// macOS editing surface backed by a real <see cref="WKWebView"/>.
+/// Editing surface backed by a real <see cref="WKWebView"/>, shared by the macOS and iOS heads.
 ///
-/// Why this exists: the cross-platform WebView.Avalonia package resolves its macOS backend through
-/// legacy Xamarin.Mac bindings, whose type initializer throws on the .NET 10 runtime. Targeting
-/// <c>net10.0-macos</c> gives us the modern AppKit/WebKit bindings instead, and Avalonia's
-/// <see cref="NativeControlHost"/> lets us drop the resulting NSView straight into the layout.
+/// The two platforms differ only in trivia — WKWebView is an <c>NSView</c> on macOS and a
+/// <c>UIView</c> on iOS, and opening an external link goes through NSWorkspace or UIApplication —
+/// so one file with a pair of <c>#if IOS</c> switches beats two copies that drift apart.
+///
+/// Why this exists at all: the cross-platform WebView.Avalonia package resolves its Apple backends
+/// through legacy Xamarin.Mac bindings, whose type initializer throws on the .NET 10 runtime.
+/// Targeting <c>net10.0-macos</c> / <c>net10.0-ios</c> gives us the modern WebKit bindings instead,
+/// and Avalonia's <see cref="NativeControlHost"/> drops the resulting native view into the layout.
 ///
 /// The engine already speaks this transport: <c>postToHost</c> in editor.js posts to
 /// <c>window.webkit.messageHandlers.rio</c>, which is the handler registered below.
@@ -163,7 +174,7 @@ public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport
                 _initialHtml = null;
             }
 
-            return new NSViewHandle(webView);
+            return new NativeViewHandle(webView);
         }
 
         protected override void DestroyNativeControlCore(IPlatformHandle control)
@@ -174,14 +185,18 @@ public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport
     }
 
     /// <summary>Wraps an NSView pointer in the shape Avalonia's macOS backend expects.</summary>
-    private sealed class NSViewHandle : IPlatformHandle
+    private sealed class NativeViewHandle : IPlatformHandle
     {
-        public NSViewHandle(NSView view) => Handle = view.Handle.Handle;
+        public NativeViewHandle(NativeView view) => Handle = view.Handle.Handle;
 
         public IntPtr Handle { get; }
 
-        /// <summary>Avalonia's macOS backend keys off this exact descriptor string.</summary>
+        /// <summary>Avalonia's Apple backends key off these exact descriptor strings.</summary>
+#if IOS
+        public string HandleDescriptor => "UIView";
+#else
         public string HandleDescriptor => "NSView";
+#endif
     }
 
     private sealed class ScriptMessageHandler : NSObject, IWKScriptMessageHandler
@@ -236,7 +251,11 @@ public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport
 
             if (scheme is "http" or "https" or "mailto")
             {
+#if IOS
+                UIApplication.SharedApplication.OpenUrl(url, new UIApplicationOpenUrlOptions(), null);
+#else
                 NSWorkspace.SharedWorkspace.OpenUrl(url);
+#endif
             }
         }
     }

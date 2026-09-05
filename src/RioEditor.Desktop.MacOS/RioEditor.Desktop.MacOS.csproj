@@ -33,4 +33,9 @@
     <ProjectReference Include="..\RioEditor.App\RioEditor.App.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- One WKWebView surface, shared with the iOS head; the differences are two #if switches. -->
+    <Compile Include="..\Shared.WebKit\WkWebViewEditorSurface.cs" Link="WkWebViewEditorSurface.cs" />
+  </ItemGroup>
+
 </Project>

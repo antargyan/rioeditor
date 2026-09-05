@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RioEditor.Android/RioEditor.Android.csproj" />
     <Project Path="src/RioEditor.App/RioEditor.App.csproj" />
     <Project Path="src/RioEditor.Browser/RioEditor.Browser.csproj" />
     <Project Path="src/RioEditor.Core/RioEditor.Core.csproj" />
     <Project Path="src/RioEditor.Desktop.MacOS/RioEditor.Desktop.MacOS.csproj" />
     <Project Path="src/RioEditor.Desktop/RioEditor.Desktop.csproj" />
+    <Project Path="src/RioEditor.iOS/RioEditor.iOS.csproj" />
   </Folder>
 </Solution>

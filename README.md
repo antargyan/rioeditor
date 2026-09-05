@@ -29,8 +29,11 @@ RioEditor/
     │   ├── Views/                  # MainWindow · MainView · ToolbarView
     │   ├── Services/               # FileService, ThemeService, surface abstraction
     │   └── Composition/            # Microsoft.Extensions.DependencyInjection wiring
+    ├── Shared.WebKit/              # one WKWebView surface, linked by the macOS and iOS heads
     ├── RioEditor.Desktop/          # Windows / Linux head (WebView2, WebKitGTK)
     ├── RioEditor.Desktop.MacOS/    # macOS head (net10.0-macos, native WKWebView)
+    ├── RioEditor.iOS/              # iOS head (net10.0-ios, native WKWebView)
+    ├── RioEditor.Android/          # Android head (net10.0-android, system WebView)
     └── RioEditor.Browser/          # WebAssembly head + iframe surface + JS interop
 ```
 
@@ -132,6 +135,47 @@ Note that `dotnet build RioEditor.slnx` requires the macOS workload, because the
 that head. Without it you get `NETSDK1147`; build the other projects individually, or drop the
 `RioEditor.Desktop.MacOS` line from `RioEditor.slnx`.
 
+### iOS
+
+```bash
+sudo dotnet workload install ios     # once
+dotnet build src/RioEditor.iOS -f net10.0-ios -r iossimulator-arm64
+xcrun simctl install booted src/RioEditor.iOS/bin/Debug/net10.0-ios/iossimulator-arm64/RioEditor.app
+xcrun simctl launch booted com.rioeditor.app
+```
+
+For a physical device you need a provisioning profile; add `-p:RuntimeIdentifier=ios-arm64` and your
+signing identity.
+
+### Android
+
+```bash
+sudo dotnet workload install android                                    # once
+dotnet build src/RioEditor.Android -t:InstallAndroidDependencies \
+  -p:AcceptAndroidSDKLicenses=True                                      # once, ~1-2 GB
+dotnet build src/RioEditor.Android -t:Run                               # emulator or attached device
+```
+
+To install a debug APK by hand, embed the assemblies first — otherwise the runtime expects the
+fast-deployment assets that only `-t:Run` pushes:
+
+```bash
+dotnet build src/RioEditor.Android -t:SignAndroidPackage -p:EmbedAssembliesIntoApk=true
+adb install -r src/RioEditor.Android/bin/Debug/net10.0-android/com.rioeditor.app-Signed.apk
+```
+
+If the JDK or Android SDK live somewhere non-standard, put their paths in
+`Directory.Build.local.props` (git-ignored, imported by `Directory.Build.props`):
+
+```xml
+<Project>
+  <PropertyGroup>
+    <JavaSdkDirectory>$(HOME)/Library/Android/jdk/jdk-17.0.20.1+1/Contents/Home</JavaSdkDirectory>
+    <AndroidSdkDirectory>$(HOME)/Library/Android/sdk</AndroidSdkDirectory>
+  </PropertyGroup>
+</Project>
+```
+
 ### WebAssembly
 
 ```bash
@@ -165,7 +209,18 @@ multithreading later, the COOP/COEP headers. Plain single-threaded builds need n
 | Windows | `RioEditor.Desktop` | WebView2 (via WebView.Avalonia) | [Evergreen WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (present on Windows 11, shipped by Edge on Windows 10) |
 | Linux | `RioEditor.Desktop` | WebKitGTK (via WebView.Avalonia) | `sudo apt install libwebkit2gtk-4.1-0` (older distros: `libwebkit2gtk-4.0-37`) |
 | macOS | `RioEditor.Desktop.MacOS` | WKWebView (native bindings) | `sudo dotnet workload install macos` |
+| iOS | `RioEditor.iOS` | WKWebView (UIKit) | `sudo dotnet workload install ios` + Xcode |
+| Android | `RioEditor.Android` | Android System WebView | `sudo dotnet workload install android` + Android SDK |
 | WebAssembly | `RioEditor.Browser` | same-origin iframe | None; the browser *is* the WebView |
+
+Every native head is the same shape: a `NativeControlHost` that creates the platform WebView and
+implements `IWebViewTransport`. The Apple heads literally share one file (`Shared.WebKit`), because
+`WKWebView` is an `NSView` on macOS and a `UIView` on iOS and nothing else differs.
+
+The **inbound** channel is the only part that varies per platform, and `postToHost` in `editor.js`
+already covers all of them: `chrome.webview.postMessage` (WebView2),
+`webkit.messageHandlers.rio` (WKWebView, macOS *and* iOS), `rioAndroid.postMessage`
+(an Android `@JavascriptInterface`), `rioHostChannel` (WebKitGTK) and `parent.postMessage` (WASM).
 
 **Why macOS gets its own head.** `WebView.Avalonia` (v11.0.0.1, the newest published) resolves its
 macOS backend through the legacy `Xamarin.Mac` bindings, whose type initializer throws on the .NET
@@ -255,8 +310,40 @@ headings, emphasis, inline code, interactive task-list checkboxes, the syntax-hi
 and the table all correct; live typing updates the word count; autosave keeps a draft; the title bar
 shows the dirty marker. Avalonia's chrome and the WebView share the window without conflict.
 
+The **iOS** head was deployed to an iPhone 17 Pro simulator and photographed: the document renders in
+a real WKWebView, draft persistence works and is correctly scoped to the app's own container, and
+the status bar reports a live word count. Verifying it also turned up a genuine bug — word count
+stayed at 0 for a freshly opened document, because it was only ever updated on edit. The engine now
+reports document stats after a full mount, separately from `docChanged`, so opening a file no longer
+looks empty and does not mark the buffer dirty.
+
+The **Android** head was deployed to an Android 36 (API 36, arm64) emulator and photographed: the
+document renders in the system WebView, the word count reads 144, and tapping the theme toggle flips
+both the Avalonia chrome and the WebView together. That word count matters — it can only have
+arrived through the `@JavascriptInterface` channel, so the Android transport is proven in *both*
+directions, not just outbound.
+
+Two Android-specific traps, both hit and fixed here:
+
+1. The activity theme **must** descend from `Theme.AppCompat`. Avalonia's `AvaloniaActivity` extends
+   `AppCompatActivity`, so any other parent (e.g. `android:Theme.Material.Light.NoActionBar`) dies at
+   startup with *"You need to use a Theme.AppCompat theme"*.
+2. Installing the debug APK by hand with `adb install` crashes with *"No assemblies found …
+   Assuming this is part of Fast Deployment"*. Either deploy with `dotnet build -t:Run`, which pushes
+   the assemblies separately, or build with `-p:EmbedAssembliesIntoApk=true` as the commands in
+   section 4 do.
+
 The **Windows/Linux** desktop head builds and starts; its WebView2 and WebKitGTK backends are the
 well-trodden paths for those platforms and were not exercised on this machine.
+
+### Known limitations
+
+- The **toolbar is desktop-shaped**. On a phone only the first few commands fit and the rest scrolls
+  horizontally. A compact mobile layout (overflow menu, or a format bar above the keyboard) is not
+  implemented.
+- Mobile contenteditable has its own selection and virtual-keyboard behaviour that has not been
+  exercised beyond rendering and load.
+- No export or print.
 
 ## 9. Package versions
 

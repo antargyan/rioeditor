@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Android head. Uses Android.Webkit.WebView (the system WebView, backed by Chrome) hosted in an
+    Avalonia NativeControlHost — the same pattern as the Apple heads, different native class.
+    Requires the Android SDK:  dotnet build -t:InstallAndroidDependencies -p:AcceptAndroidSDKLicenses=True
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <RootNamespace>RioEditor.Android</RootNamespace>
+    <AssemblyName>RioEditor</AssemblyName>
+    <ApplicationId>com.rioeditor.app</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+    <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Android" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RioEditor.App\RioEditor.App.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -16,6 +16,9 @@ public interface IWebViewBridge
 
     event EventHandler<SelectionChangedEventArgs>? SelectionChanged;
 
+    /// <summary>Raised when the document's size changes without the document becoming dirty.</summary>
+    event EventHandler<DocumentStatsEventArgs>? StatsChanged;
+
     /// <summary>Binds the bridge to a platform surface and loads the editor document.</summary>
     Task AttachAsync(IWebViewTransport transport, AppTheme theme, bool allowRemoteScripts);
 

@@ -46,6 +46,8 @@ public sealed class WebViewBridge : IWebViewBridge
 
     public event EventHandler<SelectionChangedEventArgs>? SelectionChanged;
 
+    public event EventHandler<DocumentStatsEventArgs>? StatsChanged;
+
     public async Task AttachAsync(IWebViewTransport transport, AppTheme theme, bool allowRemoteScripts)
     {
         if (_transport is not null)
@@ -198,6 +200,11 @@ public sealed class WebViewBridge : IWebViewBridge
 
                     break;
                 }
+
+                case "stats":
+                    StatsChanged?.Invoke(this, new DocumentStatsEventArgs(
+                        root.TryGetProperty("wordCount", out var count) ? count.GetInt32() : 0));
+                    break;
 
                 case "selection":
                     SelectionChanged?.Invoke(this, new SelectionChangedEventArgs

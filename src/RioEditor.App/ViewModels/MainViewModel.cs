@@ -89,6 +89,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         _bridge.Ready += OnEditorReady;
         _bridge.DocumentChanged += OnDocumentChanged;
+        _bridge.StatsChanged += OnStatsChanged;
     }
 
     public DocumentModel Document { get; } = new();
@@ -191,6 +192,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             StatusMessage = $"Could not restore the last session: {e.Message}";
         }
     }
+
+    private void OnStatsChanged(object? sender, DocumentStatsEventArgs e) =>
+        RxApp.MainThreadScheduler.Schedule(() => WordCount = e.WordCount);
 
     private void OnDocumentChanged(object? sender, DocumentChangedEventArgs e) =>
         RxApp.MainThreadScheduler.Schedule(() =>
@@ -391,6 +395,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         _bridge.Ready -= OnEditorReady;
         _bridge.DocumentChanged -= OnDocumentChanged;
+        _bridge.StatsChanged -= OnStatsChanged;
         _disposables.Dispose();
         _title.Dispose();
         _statusText.Dispose();

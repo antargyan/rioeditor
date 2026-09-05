@@ -17,6 +17,14 @@ public sealed class DocumentChangedEventArgs : EventArgs
     public int WordCount { get; }
 }
 
+/// <summary>Document statistics that carry no dirty semantics (e.g. after opening a file).</summary>
+public sealed class DocumentStatsEventArgs : EventArgs
+{
+    public DocumentStatsEventArgs(int wordCount) => WordCount = wordCount;
+
+    public int WordCount { get; }
+}
+
 /// <summary>Caret/selection context, used to keep the toolbar's toggle states honest.</summary>
 public sealed class SelectionChangedEventArgs : EventArgs
 {

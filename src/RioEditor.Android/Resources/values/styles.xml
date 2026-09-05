@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!--
+    Must descend from Theme.AppCompat: Avalonia's AvaloniaActivity extends AppCompatActivity, and
+    AppCompatDelegate throws "You need to use a Theme.AppCompat theme" on any other parent.
+    Avalonia draws the whole UI, so the Android chrome is stripped back to a bare window.
+  -->
+  <style name="RioTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <item name="android:windowBackground">@android:color/white</item>
+  </style>
+</resources>

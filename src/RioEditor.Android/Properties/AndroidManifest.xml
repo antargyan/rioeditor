@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Only needed so the WebView can fetch Mermaid/KaTeX from a CDN. Turn
+       AppSettings.Wasm.AllowRemoteScripts off and the app works fully offline. -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <application android:label="RioEditor"
+               android:allowBackup="true"
+               android:supportsRtl="true"
+               android:hardwareAccelerated="true" />
+</manifest>

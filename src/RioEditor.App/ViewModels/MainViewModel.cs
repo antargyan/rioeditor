@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using ReactiveUI;
 using RioEditor.App.Services;
 using RioEditor.Core.Editor;
+using RioEditor.Core.Export;
 using RioEditor.Core.Models;
 using RioEditor.Core.Settings;
 using RioEditor.Core.Storage;
@@ -26,6 +27,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly IEditorSurface _surface;
     private readonly IThemeService _theme;
     private readonly IKeyValueStore _store;
+    private readonly IExportService _export;
     private readonly CompositeDisposable _disposables = new();
 
     private readonly ObservableAsPropertyHelper<string> _title;
@@ -44,7 +46,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ISettingsService settings,
         IEditorSurface surface,
         IThemeService theme,
-        IKeyValueStore store)
+        IKeyValueStore store,
+        IExportService export)
     {
         _bridge = bridge;
         _files = files;
@@ -52,6 +55,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _surface = surface;
         _theme = theme;
         _store = store;
+        _export = export;
 
         Toolbar = new ToolbarViewModel(bridge);
 
@@ -79,12 +83,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         SaveAs = ReactiveCommand.CreateFromTask(() => SaveAsync(promptForPath: true));
         ToggleTheme = ReactiveCommand.CreateFromTask(ToggleThemeAsync);
         ToggleFileMenu = ReactiveCommand.Create(() => { IsFileMenuOpen = !IsFileMenuOpen; });
+        ExportHtml = ReactiveCommand.CreateFromTask(ExportHtmlAsync);
+        ExportPdf = ReactiveCommand.CreateFromTask(ExportPdfAsync);
 
         // Surface every command failure in the status bar instead of tearing the app down.
         foreach (var command in new IObservable<Exception>[]
                  {
                      NewDocument.ThrownExceptions, Open.ThrownExceptions,
-                     Save.ThrownExceptions, SaveAs.ThrownExceptions, ToggleTheme.ThrownExceptions
+                     Save.ThrownExceptions, SaveAs.ThrownExceptions, ToggleTheme.ThrownExceptions,
+                     ExportHtml.ThrownExceptions, ExportPdf.ThrownExceptions
                  })
         {
             _disposables.Add(command.Subscribe(e => StatusMessage = $"Error: {e.Message}"));
@@ -159,6 +166,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ReactiveCommand<Unit, Unit> ToggleTheme { get; }
 
     public ReactiveCommand<Unit, Unit> ToggleFileMenu { get; }
+
+    public ReactiveCommand<Unit, Unit> ExportHtml { get; }
+
+    public ReactiveCommand<Unit, Unit> ExportPdf { get; }
 
     /// <summary>
     /// Called by the view once the surface is in the visual tree: loads settings, boots the
@@ -359,6 +370,77 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             _isSaving = false;
         }
+    }
+
+    // ------------------------------------------------------------------ export
+
+    private async Task ExportHtmlAsync()
+    {
+        IsFileMenuOpen = false;
+
+        var markdown = await CurrentMarkdownAsync().ConfigureAwait(true);
+        var settings = _settings.Current;
+        var title = Path.GetFileNameWithoutExtension(Document.FileName);
+
+        var html = _export.BuildStandaloneHtml(markdown, title, settings.Theme,
+            settings.Wasm.AllowRemoteScripts);
+
+        var path = await _files.SaveExportAsync(
+            System.Text.Encoding.UTF8.GetBytes(html),
+            $"{title}.html", "html", "HTML document", "text/html").ConfigureAwait(true);
+
+        StatusMessage = path is null
+            ? _files.SupportsDirectFileAccess ? "Export cancelled" : "Downloaded HTML"
+            : $"Exported {Path.GetFileName(path)}";
+    }
+
+    /// <summary>
+    /// Three tiers, best first. The WebView already lays this document out, so using its own
+    /// renderer is what makes the PDF match the screen — far better than re-flowing Markdown
+    /// through a separate PDF library and hoping the two agree.
+    /// </summary>
+    private async Task ExportPdfAsync()
+    {
+        IsFileMenuOpen = false;
+
+        var exporter = _surface as IPdfExporter;
+
+        // 1. Native PDF bytes (WKWebView on macOS and iOS).
+        if (exporter is { CanProducePdfBytes: true })
+        {
+            var bytes = await exporter.ExportPdfBytesAsync().ConfigureAwait(true);
+            if (bytes is { Length: > 0 })
+            {
+                var name = Path.GetFileNameWithoutExtension(Document.FileName);
+                var path = await _files.SaveExportAsync(bytes, $"{name}.pdf", "pdf",
+                    "PDF document", "application/pdf").ConfigureAwait(true);
+
+                StatusMessage = path is null
+                    ? _files.SupportsDirectFileAccess ? "Export cancelled" : "Downloaded PDF"
+                    : $"Exported {Path.GetFileName(path)}";
+                return;
+            }
+
+            StatusMessage = "PDF export failed; falling back to the print dialog";
+        }
+
+        // 2. The platform's own print UI, which offers "Save as PDF" (Android).
+        if (exporter is not null && await exporter.TryShowPrintUiAsync().ConfigureAwait(true))
+        {
+            StatusMessage = "Opened the system print dialog";
+            return;
+        }
+
+        // 3. window.print() inside the document (browsers, and desktop WebViews with no print API).
+        await _bridge.PrintAsync().ConfigureAwait(true);
+        StatusMessage = "Opened the print dialog — choose \"Save as PDF\"";
+    }
+
+    /// <summary>Freshest Markdown, straight from the surface, falling back to the cached buffer.</summary>
+    private async Task<string> CurrentMarkdownAsync()
+    {
+        var markdown = await _bridge.GetMarkdownAsync().ConfigureAwait(true);
+        return string.IsNullOrEmpty(markdown) ? Document.Markdown : markdown;
     }
 
     private async Task AutosaveAsync()

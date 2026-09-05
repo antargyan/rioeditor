@@ -34,7 +34,8 @@ public sealed class HtmlSanitizerService : IHtmlSanitizer
     {
         "class", "id", "title", "dir", "lang",
         // Attributes the editor engine itself relies on to address blocks.
-        "data-rio-block", "data-rio-id", "data-line", "data-lang"
+        "data-rio-block", "data-rio-id", "data-rio-source", "data-line", "data-lang",
+        "data-processed"
     };
 
     private static readonly Dictionary<string, HashSet<string>> TagAttributes =

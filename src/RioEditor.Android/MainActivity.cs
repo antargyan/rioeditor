@@ -28,6 +28,28 @@ namespace RioEditor.Android;
                            | ConfigChanges.KeyboardHidden)]
 public class MainActivity : AvaloniaMainActivity<App.App>
 {
+    /// <summary>
+    /// The running Activity. Some Android APIs — the print framework in particular — need an
+    /// Activity context and fail with the Application one, because they have UI to show.
+    /// </summary>
+    internal static MainActivity? Current { get; private set; }
+
+    protected override void OnCreate(global::Android.OS.Bundle? savedInstanceState)
+    {
+        Current = this;
+        base.OnCreate(savedInstanceState);
+    }
+
+    protected override void OnDestroy()
+    {
+        if (ReferenceEquals(Current, this))
+        {
+            Current = null;
+        }
+
+        base.OnDestroy();
+    }
+
     protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
     {
         // DI must be composed before Avalonia instantiates App.

@@ -153,7 +153,11 @@ public sealed class HtmlToMarkdownService : IHtmlToMarkdownService
 
             case "div" when IsMermaid(node):
             {
-                var body = HtmlEntity.DeEntitize(node.InnerText).Trim();
+                // Once Mermaid has drawn the diagram the node's text is the rendered SVG, so the
+                // engine stashes the graph source in data-rio-source. Prefer it; the inner text is
+                // only correct before the first render.
+                var stashed = node.GetAttributeValue("data-rio-source", null);
+                var body = HtmlEntity.DeEntitize(stashed ?? node.InnerText).Trim();
                 output.Append("```mermaid\n").Append(body).Append("\n```\n\n");
                 return;
             }

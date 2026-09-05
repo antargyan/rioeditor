@@ -17,6 +17,7 @@ public static class EditorDocumentFactory
     private static readonly Lazy<string> Template = new(() => ReadResource("editor.html"));
     private static readonly Lazy<string> Styles = new(() => ReadResource("editor.css"));
     private static readonly Lazy<string> Engine = new(() => ReadResource("editor.js"));
+    private static readonly Lazy<string> Highlighter = new(() => ReadResource("highlight.js"));
 
     /// <summary>CDN tags for Mermaid + KaTeX. Omitted entirely when remote scripts are disabled.</summary>
     private const string RemoteScriptTags = """
@@ -30,10 +31,20 @@ public static class EditorDocumentFactory
         </script>
         """;
 
+    /// <summary>The editor stylesheet, reused by HTML export so exports look like the editor.</summary>
+    public static string EditorCss => Styles.Value;
+
+    /// <summary>The CDN tags, reused by HTML export so exported math and diagrams still render.</summary>
+    public static string RemoteScripts => RemoteScriptTags;
+
+    /// <summary>The shared code highlighter, inlined by both the editor and HTML export.</summary>
+    public static string HighlightJs => Highlighter.Value;
+
     public static string Build(AppTheme theme, bool allowRemoteScripts) =>
         Template.Value
             .Replace("/*{{STYLES}}*/", Styles.Value)
-            .Replace("/*{{ENGINE}}*/", Engine.Value)
+            // The highlighter must be defined before the engine calls into it.
+            .Replace("/*{{ENGINE}}*/", Highlighter.Value + "\n" + Engine.Value)
             .Replace("{{REMOTE_SCRIPTS}}", allowRemoteScripts ? RemoteScriptTags : string.Empty)
             .Replace("{{THEME}}", theme == AppTheme.Dark ? "dark" : "light");
 

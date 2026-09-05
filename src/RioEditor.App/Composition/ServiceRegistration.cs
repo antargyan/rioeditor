@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RioEditor.App.Services;
 using RioEditor.App.ViewModels;
 using RioEditor.Core.Editor;
+using RioEditor.Core.Export;
 using RioEditor.Core.Markdown;
 using RioEditor.Core.Sanitization;
 using RioEditor.Core.Settings;
@@ -20,6 +21,7 @@ public static class ServiceRegistration
         services.AddSingleton<IHtmlSanitizer, HtmlSanitizerService>();
         services.AddSingleton<IMarkdownService, MarkdownService>();
         services.AddSingleton<IHtmlToMarkdownService, HtmlToMarkdownService>();
+        services.AddSingleton<IExportService, ExportService>();
 
         // --- Editor bridge ----------------------------------------------------
         services.AddSingleton<IWebViewBridge, WebViewBridge>();

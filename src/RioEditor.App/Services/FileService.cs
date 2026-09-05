@@ -92,6 +92,42 @@ public sealed class FileService : IFileService
         return file.TryGetLocalPath();
     }
 
+    public async Task<string?> SaveExportAsync(byte[] content, string suggestedName, string extension,
+        string description, string mimeType, CancellationToken cancellationToken = default)
+    {
+        if (Storage is not { } storage)
+        {
+            return null;
+        }
+
+        var fileType = new FilePickerFileType(description)
+        {
+            Patterns = [$"*.{extension}"],
+            MimeTypes = [mimeType]
+        };
+
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = $"Export as {description}",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = extension,
+            ShowOverwritePrompt = true,
+            FileTypeChoices = [fileType]
+        }).ConfigureAwait(true);
+
+        if (file is null)
+        {
+            return null;
+        }
+
+        await using var stream = await file.OpenWriteAsync().ConfigureAwait(true);
+        await stream.WriteAsync(content, cancellationToken).ConfigureAwait(true);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(true);
+
+        // On WASM this is a download, so there is no path to report back.
+        return file.TryGetLocalPath();
+    }
+
     public async Task<bool> WriteAsync(string path, string text, CancellationToken cancellationToken = default)
     {
         if (!SupportsDirectFileAccess)

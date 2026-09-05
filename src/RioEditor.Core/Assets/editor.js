@@ -971,48 +971,7 @@
    * 10. Decoration: syntax highlighting, Mermaid, KaTeX
    * ==================================================================== */
 
-  var HIGHLIGHT_KEYWORDS = 'function|return|const|let|var|if|else|for|while|class|new|import|export|from|' +
-    'async|await|try|catch|finally|throw|public|private|protected|static|void|int|string|bool|double|' +
-    'using|namespace|def|end|struct|enum|interface|switch|case|break|continue|this|null|true|false|nil|None|True|False';
-
-  /*
-   * One combined pattern, scanned in a single pass. Doing this as a chain of
-   * .replace() calls is subtly wrong: the second pass matches the markup the
-   * first pass just inserted (a class="tok-comment" attribute looks exactly
-   * like a string literal).
-   */
-  var TOKEN_PATTERN = new RegExp(
-    '(\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/|(?:^|\\n)[ \\t]*#[^\\n]*)' +   // 1: comments
-    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' +           // 2: strings
-    '|\\b(\\d+(?:\\.\\d+)?)\\b' +                                        // 3: numbers
-    '|\\b(' + HIGHLIGHT_KEYWORDS + ')\\b',                               // 4: keywords
-    'g');
-
-  function highlight(code) {
-    if (code.dataset.rioHighlighted === '1') return;
-    var text = code.textContent;
-    if (!text || text.length > 20000) return;            // don't choke on huge blocks
-
-    var out = '';
-    var last = 0;
-    var match;
-    TOKEN_PATTERN.lastIndex = 0;
-    while ((match = TOKEN_PATTERN.exec(text)) !== null) {
-      out += escapeHtml(text.slice(last, match.index));
-      var cls = match[1] ? 'tok-comment'
-              : match[2] ? 'tok-string'
-              : match[3] ? 'tok-number'
-              : 'tok-keyword';
-      out += '<span class="' + cls + '">' + escapeHtml(match[0]) + '</span>';
-      last = match.index + match[0].length;
-      if (TOKEN_PATTERN.lastIndex === match.index) TOKEN_PATTERN.lastIndex++;  // zero-width guard
-    }
-    out += escapeHtml(text.slice(last));
-
-    code.innerHTML = out;
-    code.dataset.rioHighlighted = '1';
-  }
-
+  // Highlighting lives in the shared highlight.js asset, which HTML export inlines too.
   var decorateTimer = null;
 
   function decorate() {
@@ -1024,11 +983,7 @@
       // Highlight only code blocks the caret is not sitting in — rewriting the
       // innerHTML of the block being typed in would fight the user for the caret.
       var active = closest(window.getSelection().anchorNode, 'PRE');
-      var blocks = editor.querySelectorAll('pre > code');
-      for (var i = 0; i < blocks.length; i++) {
-        if (active && active.contains(blocks[i])) continue;
-        highlight(blocks[i]);
-      }
+      if (window.rioHighlight) window.rioHighlight.applyAll(editor, active);
 
       renderMermaid();
       renderMath();
@@ -1040,6 +995,19 @@
     if (!window.mermaid) return;
     var nodes = editor.querySelectorAll('.mermaid:not([data-processed="true"])');
     if (nodes.length === 0) return;
+
+    // Mermaid replaces the node's text with rendered SVG, so the graph source is gone after the
+    // first pass. Stash it: without this a re-render (a theme flip) feeds SVG back to the parser
+    // and produces "Syntax error in text" — and, worse, saving would write the SVG into the
+    // Markdown file, because that is what the HTML -> Markdown pass would read.
+    for (var n = 0; n < nodes.length; n++) {
+      if (!nodes[n].getAttribute('data-rio-source')) {
+        nodes[n].setAttribute('data-rio-source', nodes[n].textContent);
+      } else {
+        nodes[n].textContent = nodes[n].getAttribute('data-rio-source');
+      }
+    }
+
     try {
       window.mermaid.initialize({
         startOnLoad: false,
@@ -1063,7 +1031,10 @@
           { left: '\\[', right: '\\]', display: true }
         ],
         throwOnError: false,
-        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+        // Without this, each pass re-processes KaTeX's own output (its MathML annotation still
+        // holds the source) and the expression multiplies on every decoration cycle.
+        ignoredClasses: ['katex', 'katex-display']
       });
     } catch (e) { /* ignore */ }
   }
@@ -1078,7 +1049,11 @@
     document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
     // Re-render Mermaid so its own palette follows the editor theme.
     var nodes = editor.querySelectorAll('.mermaid[data-processed="true"]');
-    for (var i = 0; i < nodes.length; i++) nodes[i].removeAttribute('data-processed');
+    for (var i = 0; i < nodes.length; i++) {
+      var source = nodes[i].getAttribute('data-rio-source');
+      if (source) nodes[i].textContent = source;      // restore before re-parsing
+      nodes[i].removeAttribute('data-processed');
+    }
     renderMermaid();
     postToHost({ type: 'themeChanged', theme: theme });
   }
@@ -1140,6 +1115,7 @@
     applyHorizontalRule: commands.horizontalRule,
     insertTable: commands.table,
 
+    print: function () { try { window.print(); } catch (e) { /* unsupported */ } },
     toggleTheme: toggleTheme,
     setTheme: setTheme,
     focus: function () { editor.focus(); }
@@ -1213,6 +1189,11 @@
 
         case 'focus':
           editor.focus();
+          break;
+
+        case 'print':
+          // Fallback PDF route: the platform print dialog offers "Save as PDF".
+          try { window.print(); } catch (e) { console.warn('[rio] print unavailable', e); }
           break;
       }
     }

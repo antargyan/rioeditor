@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Android.Print;
 using Android.Webkit;
 using Avalonia.Android;
 using Avalonia.Controls;
@@ -7,6 +8,7 @@ using Avalonia.Threading;
 using Java.Interop;
 using RioEditor.App.Services;
 using RioEditor.Core.Editor;
+using RioEditor.Core.Export;
 using AndroidWebView = Android.Webkit.WebView;
 
 namespace RioEditor.Android;
@@ -19,7 +21,7 @@ namespace RioEditor.Android;
 /// <c>webkit.messageHandlers</c>, so a <c>@JavascriptInterface</c> object is injected as
 /// <c>window.rioAndroid</c>, which <c>postToHost</c> in editor.js knows how to use.
 /// </summary>
-public sealed class AndroidWebViewEditorSurface : IEditorSurface, IWebViewTransport
+public sealed class AndroidWebViewEditorSurface : IEditorSurface, IWebViewTransport, IPdfExporter
 {
     private readonly ConcurrentQueue<string> _pendingScripts = new();
 
@@ -82,6 +84,57 @@ public sealed class AndroidWebViewEditorSurface : IEditorSurface, IWebViewTransp
 
     public event EventHandler<string>? MessageReceived;
 
+    /// <summary>Activity context where one exists; the WebView prefers it too.</summary>
+    private static global::Android.Content.Context? ActivityContext =>
+        MainActivity.Current ?? (global::Android.Content.Context?)global::Android.App.Application.Context;
+
+    // ------------------------------------------------------------------ IPdfExporter
+
+    /// <summary>
+    /// Android's WebView exposes no direct render-to-PDF API. It does expose a
+    /// PrintDocumentAdapter, and Android's print framework always offers a "Save as PDF" target,
+    /// so the print sheet is the honest native route rather than a workaround.
+    /// </summary>
+    public bool CanProducePdfBytes => false;
+
+    public Task<byte[]?> ExportPdfBytesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<byte[]?>(null);
+
+    public Task<bool> TryShowPrintUiAsync()
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                // Must be the Activity, not Application.Context: the print framework shows UI and
+                // silently refuses a non-Activity context.
+                if (_host?.WebView is not { } webView ||
+                    ActivityContext is not { } context ||
+                    context.GetSystemService(global::Android.Content.Context.PrintService)
+                        is not PrintManager printManager)
+                {
+                    completion.TrySetResult(false);
+                    return;
+                }
+
+                const string jobName = "RioEditor document";
+                var adapter = webView.CreatePrintDocumentAdapter(jobName);
+                printManager.Print(jobName, adapter, new PrintAttributes.Builder().Build());
+                completion.TrySetResult(true);
+            }
+            catch (Exception e)
+            {
+                // No print service on this device: let the caller fall back to window.print().
+                global::Android.Util.Log.Warn("RioEditor", $"print UI unavailable: {e.Message}");
+                completion.TrySetResult(false);
+            }
+        });
+
+        return completion.Task;
+    }
+
     // ------------------------------------------------------------------ internals
 
     private void Evaluate(string script) => _host?.WebView?.EvaluateJavascript(script, null);
@@ -115,7 +168,9 @@ public sealed class AndroidWebViewEditorSurface : IEditorSurface, IWebViewTransp
 
         protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
         {
-            var context = global::Android.App.Application.Context;
+            // An Activity context where available: a WebView created with the Application context
+            // cannot show dialogs, file pickers or the print UI.
+            var context = ActivityContext ?? global::Android.App.Application.Context;
             var webView = new AndroidWebView(context);
 
             webView.Settings.JavaScriptEnabled = true;

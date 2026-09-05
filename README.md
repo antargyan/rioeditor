@@ -255,6 +255,25 @@ System Access API or a download in the browser), autosave every 5 seconds, dirty
 title bar, last file restored on startup. When there is no writable path (unsaved buffer, or WASM),
 autosave keeps a draft in the settings store instead of losing work.
 
+**Export** — HTML and PDF, from the toolbar or `Ctrl+Shift+E` / `Ctrl+P`.
+
+*HTML* is a single self-contained file: the editor's own stylesheet is inlined, along with the same
+code highlighter the editor uses, so an export looks like the document you were editing. Print rules
+(`@page` margins, `break-inside: avoid` on code, tables and diagrams, and printed URLs after links)
+are layered on top. Math and diagrams render on load when remote scripts are enabled.
+
+*PDF* uses three tiers, best first, because the component that already knows how to lay this
+document out is the WebView showing it — using its renderer is what makes the PDF match the screen:
+
+| Tier | Platform | Route |
+| --- | --- | --- |
+| 1 | macOS, iOS | `WKWebView.CreatePdf` returns PDF bytes; the app then shows a save picker |
+| 2 | Android | `PrintManager` + the WebView's print adapter opens the system sheet, where "Save as PDF" is always offered |
+| 3 | Windows, Linux, WASM | `window.print()` inside the document, and the user picks "Save as PDF" |
+
+A surface opts into tiers 1 and 2 by implementing `IPdfExporter`; anything that does not falls
+through to tier 3 automatically.
+
 **Settings** — theme, last opened file, window size/maximised state, autosave interval and the WASM
 compatibility switches, persisted to `settings.json` in the user's app-data folder on desktop and to
 `localStorage` in the browser.
@@ -362,6 +381,23 @@ live inside the chrome. The same applies to any future dropdown, autocomplete or
 - The formatting bar does not follow the on-screen keyboard; a format bar docked above the keyboard
   would be the next improvement.
 - No export or print.
+
+### Rendered blocks must keep their source
+
+Both Mermaid and KaTeX *replace* the content they render, which caused a family of bugs found by
+printing the document and looking at the preview:
+
+- Re-running Mermaid after a theme flip fed it the rendered SVG instead of the graph, producing
+  "Syntax error in text";
+- KaTeX's auto-render re-processed its own output on every decoration pass, multiplying the
+  expression;
+- worst of all, the HTML → Markdown pass read a rendered diagram's text, so **saving after a diagram
+  rendered wrote SVG into the Markdown file**.
+
+The engine now stashes the original graph in `data-rio-source` before rendering and restores it
+before any re-render, `HtmlToMarkdownService` prefers that attribute over the node's text, and
+KaTeX is configured with `ignoredClasses: ['katex', 'katex-display']`. Any future renderer that
+rewrites its own block needs the same treatment.
 
 ### Gotcha: stale iOS builds
 

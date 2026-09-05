@@ -23,5 +23,12 @@ public interface IFileService
 
     Task<string?> ReadAsync(string path, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Shows a save picker for an exported artefact. <paramref name="extension"/> drives both the
+    /// filter and the default suffix (e.g. "html", "pdf").
+    /// </summary>
+    Task<string?> SaveExportAsync(byte[] content, string suggestedName, string extension,
+        string description, string mimeType, CancellationToken cancellationToken = default);
+
     bool Exists(string path);
 }

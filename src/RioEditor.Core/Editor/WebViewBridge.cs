@@ -115,6 +115,8 @@ public sealed class WebViewBridge : IWebViewBridge
 
     public Task FocusAsync() => SendAsync(new HostMessage { Type = "focus" });
 
+    public Task PrintAsync() => SendAsync(new HostMessage { Type = "print" });
+
     // ---------------------------------------------------------------- engine -> host
 
     private void OnMessageReceived(object? sender, string payload)

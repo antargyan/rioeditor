@@ -6,6 +6,7 @@ using CoreGraphics;
 using Foundation;
 using RioEditor.App.Services;
 using RioEditor.Core.Editor;
+using RioEditor.Core.Export;
 using WebKit;
 
 #if IOS
@@ -33,7 +34,7 @@ namespace RioEditor.Platform.WebKitSurface;
 /// The engine already speaks this transport: <c>postToHost</c> in editor.js posts to
 /// <c>window.webkit.messageHandlers.rio</c>, which is the handler registered below.
 /// </summary>
-public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport
+public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport, IPdfExporter
 {
     private readonly ConcurrentQueue<string> _pendingScripts = new();
 
@@ -99,6 +100,44 @@ public sealed class WkWebViewEditorSurface : IEditorSurface, IWebViewTransport
     }
 
     public event EventHandler<string>? MessageReceived;
+
+    // ------------------------------------------------------------------ IPdfExporter
+
+    /// <summary>WKWebView renders the PDF with the very engine that drew the document on screen.</summary>
+    public bool CanProducePdfBytes => _host?.WebView is not null;
+
+    public Task<byte[]?> ExportPdfBytesAsync(CancellationToken cancellationToken = default)
+    {
+        var completion = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_host?.WebView is not { } webView)
+            {
+                completion.TrySetResult(null);
+                return;
+            }
+
+            // A default configuration means "the whole document", not just the visible viewport.
+            webView.CreatePdf(new WKPdfConfiguration(), (data, error) =>
+            {
+                if (error is not null || data is null)
+                {
+                    completion.TrySetResult(null);
+                    return;
+                }
+
+                var bytes = new byte[(int)data.Length];
+                System.Runtime.InteropServices.Marshal.Copy(data.Bytes, bytes, 0, bytes.Length);
+                completion.TrySetResult(bytes);
+            });
+        });
+
+        return completion.Task;
+    }
+
+    /// <summary>Not needed: PDF bytes are always available, so the print UI is never the best route.</summary>
+    public Task<bool> TryShowPrintUiAsync() => Task.FromResult(false);
 
     // ------------------------------------------------------------------ internals
 

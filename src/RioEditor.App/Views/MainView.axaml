@@ -13,6 +13,8 @@
     <KeyBinding Gesture="Ctrl+S" Command="{Binding Save}" />
     <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveAs}" />
     <KeyBinding Gesture="Ctrl+Alt+T" Command="{Binding ToggleTheme}" />
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding ExportPdf}" />
+    <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding ExportHtml}" />
   </UserControl.KeyBindings>
 
   <DockPanel LastChildFill="True">
@@ -34,6 +36,11 @@
             <Button Classes="tool wide" Command="{Binding Open}" Content="Open" ToolTip.Tip="Open (Ctrl+O)" />
             <Button Classes="tool wide" Command="{Binding Save}" Content="Save" ToolTip.Tip="Save (Ctrl+S)" />
             <Button Classes="tool wide" Command="{Binding SaveAs}" Content="Save As" ToolTip.Tip="Save As (Ctrl+Shift+S)" />
+            <Separator Classes="tool" />
+            <Button Classes="tool wide" Command="{Binding ExportHtml}" Content="HTML"
+                    ToolTip.Tip="Export as a self-contained HTML file" />
+            <Button Classes="tool wide" Command="{Binding ExportPdf}" Content="PDF"
+                    ToolTip.Tip="Export as PDF (Ctrl+P)" />
             <Separator Classes="tool" />
           </StackPanel>
 
@@ -75,12 +82,16 @@
         <Border IsVisible="{Binding IsFileMenuOpen}"
                 Background="{DynamicResource SystemControlBackgroundListLowBrush}"
                 Padding="6,4">
-          <StackPanel Orientation="Horizontal" Spacing="4">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <StackPanel Orientation="Horizontal" Spacing="4">
             <Button Classes="tool wide touch" Command="{Binding NewDocument}" Content="New" />
             <Button Classes="tool wide touch" Command="{Binding Open}" Content="Open" />
             <Button Classes="tool wide touch" Command="{Binding Save}" Content="Save" />
             <Button Classes="tool wide touch" Command="{Binding SaveAs}" Content="Save As" />
-          </StackPanel>
+            <Button Classes="tool wide touch" Command="{Binding ExportHtml}" Content="HTML" />
+            <Button Classes="tool wide touch" Command="{Binding ExportPdf}" Content="PDF" />
+            </StackPanel>
+          </ScrollViewer>
         </Border>
 
         <!-- Compact row 2: the formatting bar gets the full width to scroll in. -->

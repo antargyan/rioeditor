@@ -59,4 +59,10 @@ public interface IWebViewBridge
     Task SetThemeAsync(AppTheme theme);
 
     Task FocusAsync();
+
+    /// <summary>
+    /// Asks the document to print itself (<c>window.print()</c>). The last-resort PDF route on
+    /// platforms whose WebView exposes neither PDF bytes nor a native print UI.
+    /// </summary>
+    Task PrintAsync();
 }

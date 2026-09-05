@@ -17,6 +17,7 @@
     <EmbeddedResource Include="Assets\editor.html" LogicalName="RioEditor.Core.Assets.editor.html" />
     <EmbeddedResource Include="Assets\editor.css" LogicalName="RioEditor.Core.Assets.editor.css" />
     <EmbeddedResource Include="Assets\editor.js" LogicalName="RioEditor.Core.Assets.editor.js" />
+    <EmbeddedResource Include="Assets\highlight.js" LogicalName="RioEditor.Core.Assets.highlight.js" />
   </ItemGroup>
 
 </Project>

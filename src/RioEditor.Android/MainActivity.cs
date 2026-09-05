@@ -18,6 +18,7 @@ namespace RioEditor.Android;
 [Activity(
     Label = "RioEditor",
     Theme = "@style/RioTheme",
+    Icon = "@mipmap/ic_launcher",
     MainLauncher = true,
     LaunchMode = LaunchMode.SingleTop,
     // Handle rotation ourselves; recreating the Activity would tear down the WebView and the

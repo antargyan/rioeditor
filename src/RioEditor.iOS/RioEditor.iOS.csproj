@@ -31,4 +31,10 @@
     <Compile Include="..\Shared.WebKit\WkWebViewEditorSurface.cs" Link="WkWebViewEditorSurface.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Info.plist's XSAppIconAssets selects AppIcon from this catalog. -->
+    <ImageAsset Include="Assets.xcassets\**\*.png" />
+    <ImageAsset Include="Assets.xcassets\**\Contents.json" />
+  </ItemGroup>
+
 </Project>

@@ -6,6 +6,7 @@ using RioEditor.Core.Export;
 using RioEditor.Core.Markdown;
 using RioEditor.Core.Sanitization;
 using RioEditor.Core.Settings;
+using RioEditor.Core.Sponsorship;
 
 namespace RioEditor.App.Composition;
 
@@ -31,6 +32,8 @@ public static class ServiceRegistration
         services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<IFileService, FileService>();
         services.AddSingleton<ISettingsService, SettingsService>();
+        services.AddSingleton<ILinkService, LinkService>();
+        services.AddSingleton<ISponsorPolicy, SponsorPolicy>();
 
         // --- View models -------------------------------------------------------
         services.AddSingleton<MainViewModel>();

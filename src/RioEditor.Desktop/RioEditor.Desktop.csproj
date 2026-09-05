@@ -6,6 +6,8 @@
     <RootNamespace>RioEditor.Desktop</RootNamespace>
     <AssemblyName>RioEditor</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Embedded in the .exe; the in-window icon comes from Assets/icon.png. -->
+    <ApplicationIcon>RioEditor.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <!-- The WebView packages are netstandard2.0; NU1701 is expected and harmless. -->
     <NoWarn>$(NoWarn);NU1701</NoWarn>

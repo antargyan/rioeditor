@@ -34,6 +34,9 @@ public sealed class AppSettings
     /// so the head persists an in-browser draft instead of writing to disk.
     /// </summary>
     public WasmSettings Wasm { get; set; } = new();
+
+    /// <summary>Usage counters behind the sponsorship prompt. Local only.</summary>
+    public SponsorSettings Sponsor { get; set; } = new();
 }
 
 public sealed class WasmSettings

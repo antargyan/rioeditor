@@ -101,6 +101,52 @@
     </Border>
 
 
+    <!-- ===== Sponsorship ===================================================
+         A banner docked above the status bar, never a dialog: it cannot block typing,
+         cannot interrupt quitting, and is trivially ignorable. Visibility is governed by
+         SponsorPolicy — at most three times per install, and only after real use. -->
+    <Border DockPanel.Dock="Bottom"
+            IsVisible="{Binding IsSponsorPromptVisible}"
+            Background="{DynamicResource SystemControlBackgroundListLowBrush}"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="0,1,0,0"
+            Padding="12,10">
+      <StackPanel>
+
+        <!-- Wide: everything on one line. -->
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" IsVisible="{Binding !IsCompact}">
+          <Image Grid.Column="0" Source="/Assets/logo-64.png" Width="28" Height="28"
+                 VerticalAlignment="Center" Margin="0,0,10,0" />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap"
+                     Text="Getting some use out of RioEditor? It's free and open source — sponsoring keeps it maintained." />
+          <Button Grid.Column="2" Classes="tool wide" Margin="8,0,0,0"
+                  Command="{Binding OpenSponsorPage}" Content="Sponsor" />
+          <Button Grid.Column="3" Classes="tool wide" Margin="6,0,0,0"
+                  Command="{Binding DismissSponsorPrompt}" Content="Later" />
+          <Button Grid.Column="4" Classes="tool wide" Margin="6,0,0,0"
+                  Command="{Binding NeverAskAboutSponsoring}" Content="No thanks" />
+        </Grid>
+
+        <!-- Compact: the message needs the full width, so the actions move to their own row. -->
+        <StackPanel IsVisible="{Binding IsCompact}" Spacing="8">
+          <!-- Grid, not a horizontal StackPanel: a StackPanel hands its children unbounded
+               width, so TextWrapping never engages and the message runs off the screen. -->
+          <Grid ColumnDefinitions="Auto,*">
+            <Image Grid.Column="0" Source="/Assets/logo-64.png" Width="26" Height="26"
+                   VerticalAlignment="Top" Margin="0,0,10,0" />
+            <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                       Text="Getting some use out of RioEditor? It's free and open source — sponsoring keeps it maintained." />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+            <Button Classes="tool wide touch" Command="{Binding OpenSponsorPage}" Content="Sponsor" />
+            <Button Classes="tool wide touch" Command="{Binding DismissSponsorPrompt}" Content="Later" />
+            <Button Classes="tool wide touch" Command="{Binding NeverAskAboutSponsoring}" Content="No thanks" />
+          </StackPanel>
+        </StackPanel>
+
+      </StackPanel>
+    </Border>
+
     <!-- ===== Status bar ==================================================== -->
     <Border DockPanel.Dock="Bottom"
             Background="{DynamicResource SystemControlBackgroundAltHighBrush}"

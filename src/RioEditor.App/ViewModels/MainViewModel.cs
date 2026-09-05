@@ -8,6 +8,7 @@ using RioEditor.Core.Editor;
 using RioEditor.Core.Export;
 using RioEditor.Core.Models;
 using RioEditor.Core.Settings;
+using RioEditor.Core.Sponsorship;
 using RioEditor.Core.Storage;
 
 namespace RioEditor.App.ViewModels;
@@ -28,6 +29,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly IThemeService _theme;
     private readonly IKeyValueStore _store;
     private readonly IExportService _export;
+    private readonly ISponsorPolicy _sponsor;
+    private readonly ILinkService _links;
     private readonly CompositeDisposable _disposables = new();
 
     private readonly ObservableAsPropertyHelper<string> _title;
@@ -39,6 +42,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _isEditorReady;
     private bool _isCompact;
     private bool _isFileMenuOpen;
+    private bool _isSponsorPromptVisible;
 
     public MainViewModel(
         IWebViewBridge bridge,
@@ -47,7 +51,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         IEditorSurface surface,
         IThemeService theme,
         IKeyValueStore store,
-        IExportService export)
+        IExportService export,
+        ISponsorPolicy sponsor,
+        ILinkService links)
     {
         _bridge = bridge;
         _files = files;
@@ -56,6 +62,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _theme = theme;
         _store = store;
         _export = export;
+        _sponsor = sponsor;
+        _links = links;
 
         Toolbar = new ToolbarViewModel(bridge);
 
@@ -85,6 +93,25 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ToggleFileMenu = ReactiveCommand.Create(() => { IsFileMenuOpen = !IsFileMenuOpen; });
         ExportHtml = ReactiveCommand.CreateFromTask(ExportHtmlAsync);
         ExportPdf = ReactiveCommand.CreateFromTask(ExportPdfAsync);
+
+        OpenSponsorPage = ReactiveCommand.CreateFromTask(async () =>
+        {
+            IsSponsorPromptVisible = false;
+            await _sponsor.DismissForeverAsync();
+            if (!await _links.OpenAsync(_sponsor.SponsorUri))
+            {
+                StatusMessage = $"Open {_sponsor.SponsorUri} to sponsor";
+            }
+        });
+
+        // "Later" leaves the counters intact; the quiet period in SponsorPolicy does the rest.
+        DismissSponsorPrompt = ReactiveCommand.Create(() => { IsSponsorPromptVisible = false; });
+
+        NeverAskAboutSponsoring = ReactiveCommand.CreateFromTask(async () =>
+        {
+            IsSponsorPromptVisible = false;
+            await _sponsor.DismissForeverAsync();
+        });
 
         // Surface every command failure in the status bar instead of tearing the app down.
         foreach (var command in new IObservable<Exception>[]
@@ -149,6 +176,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set => this.RaiseAndSetIfChanged(ref _isFileMenuOpen, value);
     }
 
+    /// <summary>
+    /// Shown at most three times in the life of an install, and only once the usage thresholds in
+    /// <see cref="SponsorPolicy"/> are met. A banner rather than a dialog: it never blocks typing,
+    /// and it never interrupts quitting.
+    /// </summary>
+    public bool IsSponsorPromptVisible
+    {
+        get => _isSponsorPromptVisible;
+        private set => this.RaiseAndSetIfChanged(ref _isSponsorPromptVisible, value);
+    }
+
     public bool IsEditorReady
     {
         get => _isEditorReady;
@@ -171,6 +209,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public ReactiveCommand<Unit, Unit> ExportPdf { get; }
 
+    public ReactiveCommand<Unit, Unit> OpenSponsorPage { get; }
+
+    public ReactiveCommand<Unit, Unit> DismissSponsorPrompt { get; }
+
+    public ReactiveCommand<Unit, Unit> NeverAskAboutSponsoring { get; }
+
     /// <summary>
     /// Called by the view once the surface is in the visual tree: loads settings, boots the
     /// WebView, then starts the autosave loop.
@@ -178,6 +222,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public async Task InitializeAsync()
     {
         var settings = await _settings.LoadAsync().ConfigureAwait(true);
+        await _sponsor.RecordLaunchAsync().ConfigureAwait(true);
 
         _theme.Apply(settings.Theme);
         Toolbar.IsDarkTheme = settings.Theme == AppTheme.Dark;
@@ -263,6 +308,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 await LoadIntoEditorAsync(text).ConfigureAwait(true);
                 Document.IsDirty = false;
                 StatusMessage = $"Restored {Document.FileName}";
+                await MaybeShowSponsorPromptAsync().ConfigureAwait(true);
                 return;
             }
         }
@@ -277,6 +323,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 await LoadIntoEditorAsync(draft).ConfigureAwait(true);
                 Document.IsDirty = true;
                 StatusMessage = $"Restored unsaved draft{(string.IsNullOrEmpty(name) ? string.Empty : $" ({name})")}";
+                await MaybeShowSponsorPromptAsync().ConfigureAwait(true);
                 return;
             }
         }
@@ -285,6 +332,22 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         await LoadIntoEditorAsync(WelcomeDocument).ConfigureAwait(true);
         Document.IsDirty = false;
         StatusMessage = "Ready";
+        await MaybeShowSponsorPromptAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Evaluated after the document is on screen, so the app has already been useful before it asks
+    /// for anything.
+    /// </summary>
+    private async Task MaybeShowSponsorPromptAsync()
+    {
+        if (!_sponsor.ShouldPrompt())
+        {
+            return;
+        }
+
+        await _sponsor.RecordPromptShownAsync().ConfigureAwait(true);
+        IsSponsorPromptVisible = true;
     }
 
     private async Task LoadIntoEditorAsync(string markdown)
@@ -364,6 +427,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             Document.IsDirty = false;
             _settings.Current.LastOpenedFile = path;
             await _settings.SaveAsync().ConfigureAwait(true);
+            await _sponsor.RecordSaveAsync().ConfigureAwait(true);
             StatusMessage = $"Saved {DateTime.Now:HH:mm:ss}";
         }
         finally

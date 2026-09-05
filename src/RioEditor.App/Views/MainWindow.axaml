@@ -6,6 +6,7 @@
         x:DataType="vm:MainViewModel"
         x:CompileBindings="True"
         Title="{Binding Title}"
+        Icon="/Assets/icon.png"
         Width="1180" Height="780"
         MinWidth="520" MinHeight="380"
         WindowStartupLocation="CenterScreen">

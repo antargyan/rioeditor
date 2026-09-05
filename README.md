@@ -374,6 +374,47 @@ is drawn behind it. The first attempt used a `MenuFlyout` and it rendered clippe
 above the WebView was visible. Anything that must stay visible on a native-WebView platform has to
 live inside the chrome. The same applies to any future dropdown, autocomplete or context menu.
 
+### Branding
+
+The icon pack is wired into every head:
+
+| Head | Source | Mechanism |
+| --- | --- | --- |
+| Desktop (Windows) | `RioEditor.ico` | `<ApplicationIcon>`, embedded in the .exe |
+| Desktop (macOS) | `Assets.xcassets/AppIcon.appiconset` | `actool` → `Assets.car` + `AppIcon.icns`, selected by `CFBundleIconName` |
+| iOS | `Assets.xcassets/AppIcon.appiconset` | `XSAppIconAssets` in Info.plist |
+| Android | `Resources/mipmap-*`, adaptive `ic_launcher.xml` | `android:icon="@mipmap/ic_launcher"` |
+| WASM | `wwwroot/favicon.ico`, `icon-256.png` | `<link rel="icon">` and `apple-touch-icon` |
+| In-app | `Assets/icon.png`, `Assets/logo-64.png` | window icon and the sponsor banner |
+
+**Gotcha:** a stale `obj/` silently skips the macOS asset-catalog compile, leaving the bundle with no
+`Assets.car` and no icon keys in Info.plist. If the icon does not appear, delete `bin`/`obj` and
+rebuild — the catalog is not rebuilt incrementally.
+
+### Sponsorship prompt
+
+The app is free; `SponsorPolicy` decides if and when to mention
+[GitHub Sponsors](https://github.com/sponsors/antargyan). A donation prompt is a favour asked of
+someone who already chose to use the thing, so the thresholds are deliberately conservative:
+
+| Condition | Value |
+| --- | --- |
+| Silence after install | 14 days, however heavy the usage |
+| Distinct days opened | 5 |
+| Launches | 8 |
+| Successful saves | 3 — someone who only read the welcome document is never asked |
+| Lifetime asks | 3 |
+| Quiet period between asks | 60 days |
+
+It appears as a **banner docked above the status bar, never a dialog**: it cannot block typing and
+cannot interrupt quitting. "Sponsor" and "No thanks" both stop it permanently; "Later" leaves the
+counters alone and the quiet period does the rest. The counters are local — nothing identifying is
+stored and nothing leaves the device.
+
+All thresholds are constants at the top of `SponsorPolicy`, and the behaviour is covered by a
+fake-clock test in the commit history (never on first launch, never without saves, quiet periods
+honoured, lifetime cap, permanent opt-out).
+
 ### Known limitations
 
 - Mobile contenteditable has its own selection and virtual-keyboard behaviour that has not been

@@ -34,6 +34,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- actool compiles this into Assets.car + AppIcon.icns; Info.plist's CFBundleIconName
+         selects it. Note that a stale obj/ will silently skip the catalog — clean if the icon
+         does not appear. -->
+    <ImageAsset Include="Assets.xcassets\**\*.png" />
+    <ImageAsset Include="Assets.xcassets\**\Contents.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- One WKWebView surface, shared with the iOS head; the differences are two #if switches. -->
     <Compile Include="..\Shared.WebKit\WkWebViewEditorSurface.cs" Link="WkWebViewEditorSurface.cs" />
   </ItemGroup>

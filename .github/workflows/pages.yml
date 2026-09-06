@@ -3,6 +3,8 @@ name: Deploy WebAssembly to Pages
 on:
   push:
     branches: [main]
+    # Prose cannot change the published site; skip the rebuild and redeploy.
+    paths-ignore: ['docs/**', '**.md', 'LICENSE']
   workflow_dispatch:
 
 # Required by actions/deploy-pages.

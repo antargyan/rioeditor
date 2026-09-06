@@ -3,9 +3,22 @@ name: CI
 on:
   push:
     branches: [main]
+    # Documentation cannot break a build, and the Apple job is the wall clock for every run.
+    # Skipping these keeps prose commits from spinning up three runners to compile bytes that
+    # did not change. Anything not listed here still builds everything.
+    paths-ignore: ['docs/**', '**.md', 'LICENSE']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', '**.md', 'LICENSE']
   workflow_dispatch:
+
+# A newer push makes an in-flight run obsolete, so cancel it rather than queue behind it.
+# Cancelling on main is safe as well as faster: history here is linear and every run builds the
+# whole tree, so the newest run already covers every commit an older one would have. Without a
+# concurrency group these would merely queue, which is slower than either alternative.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DOTNET_NOLOGO: true
@@ -85,8 +98,12 @@ jobs:
       - name: Build the macOS head
         run: dotnet build src/RioEditor.Desktop.MacOS -c Release
 
+      # Debug, not Release, and deliberately so. This step answers "does it still compile",
+      # which does not need the full AOT compilation a Release iOS build performs — that was
+      # taking 6.5 of this job's 9 minutes, and the job is the wall clock for the whole run.
+      # A Release iOS build belongs in the release pipeline, where the artefact is the point.
       - name: Build the iOS head (simulator)
-        run: dotnet build src/RioEditor.iOS -c Release -f net10.0-ios -r iossimulator-arm64
+        run: dotnet build src/RioEditor.iOS -c Debug -f net10.0-ios -r iossimulator-arm64
 
   android:
     name: Android

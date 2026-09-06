@@ -30,8 +30,28 @@ whole solution in one job — `RioEditor.slnx` contains heads that require the `
   (26.3) do not have
 - **ubuntu**: the Android head (the hosted image already has the SDK and a JDK)
 
-Note that macOS runner minutes bill at 10x on private repositories. Making the repository public
-makes Actions free, which is the cheapest way to keep the Apple jobs running.
+The repository is public, so Actions minutes are free. (On a *private* repository macOS bills at
+10x, which is the usual reason to think twice about the Apple job.)
+
+**Wall clock is the cost here, not money, and three things keep it down:**
+
+- **Docs do not build.** `paths-ignore` skips `docs/**`, `**.md` and `LICENSE`. Roughly a quarter
+  of commits are prose, and there is no reason for them to spin up three runners.
+- **The iOS check builds Debug, not Release.** It answers "does it still compile", which does not
+  need the AOT compilation a Release iOS build performs — that single step was taking 6.5 of the
+  job's 9 minutes, and the Apple job is the wall clock for the whole run. Release iOS builds
+  belong in the release pipeline, where the artefact is the point.
+- **Superseded runs are cancelled.** Safe as well as faster: history is linear and every run
+  builds the whole tree, so the newest run already covers every commit an older one would have.
+
+Two things worth knowing before trimming further. CI is the **only** verification the macOS, iOS
+and Android heads get — none of them can be built on a Windows development machine, and the Apple
+job gave `RioEditor.Desktop.MacOS` its first successful compile in the project's history. And
+because merges to `main` are fast-forwards rather than pull requests, CI reports *after* the merge
+rather than gating it; nothing waits on it, so a slow run costs attention rather than time.
+
+If it ever does need to become manual, pair `workflow_dispatch` with a nightly `schedule` so those
+three heads are still checked daily rather than never.
 
 ## Android → Google Play
 

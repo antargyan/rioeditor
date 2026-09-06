@@ -9,8 +9,6 @@
     <!-- Embedded in the .exe; the in-window icon comes from Assets/icon.png. -->
     <ApplicationIcon>RioEditor.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-    <!-- The WebView packages are netstandard2.0; NU1701 is expected and harmless. -->
-    <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,9 +20,8 @@
          the patched 0.21.3. See the note in Directory.Build.props. -->
     <PackageReference Include="Tmds.DBus.Protocol" Version="$(TmdsDBusProtocolVersion)" />
 
-    <!-- Native WebView backends: WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS. -->
-    <PackageReference Include="WebView.Avalonia" Version="$(AvaloniaWebViewVersion)" />
-    <PackageReference Include="WebView.Avalonia.Desktop" Version="$(AvaloniaWebViewVersion)" />
+    <!-- Native WebView backends: WebView2 on Windows, WebKitGTK on Linux. -->
+    <PackageReference Include="Avalonia.Controls.WebView" Version="$(AvaloniaWebViewVersion)" />
   </ItemGroup>
 
   <ItemGroup>

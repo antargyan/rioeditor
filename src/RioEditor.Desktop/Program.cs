@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.ReactiveUI;
-using Avalonia.WebView.Desktop;
 using Microsoft.Extensions.DependencyInjection;
 using RioEditor.App.Composition;
 using RioEditor.App.Services;
@@ -23,12 +22,11 @@ internal static class Program
     {
         App.App.Services = BuildServices(args);
 
-        return AppBuilder.Configure<DesktopApp>()
+        return AppBuilder.Configure<App.App>()
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
-            .UseReactiveUI()
-            .UseDesktopWebView();
+            .UseReactiveUI();
     }
 
     private static IServiceProvider BuildServices(string[] args) =>

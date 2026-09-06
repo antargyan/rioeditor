@@ -1,25 +1,21 @@
 using System.Collections.Concurrent;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using AvaloniaWebView;
 using RioEditor.App.Services;
 using RioEditor.Core.Editor;
-using WebViewCore.Enums;
-using WebViewCore.Events;
 
 namespace RioEditor.Desktop;
 
 /// <summary>
-/// Desktop editing surface: the native <see cref="WebView"/> control.
-/// Backends per platform — WebView2 (Windows), WebKitGTK (Linux), WKWebView (macOS).
+/// Desktop editing surface: Avalonia's own <see cref="NativeWebView"/>.
+/// Backends per platform — WebView2 (Windows), WebKitGTK (Linux).
 /// </summary>
 public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 {
     private readonly ConcurrentQueue<string> _pendingScripts = new();
 
-    private WebView? _webView;
+    private NativeWebView? _webView;
     private bool _documentLoaded;
-    private bool _loadingOwnDocument;
     private string? _failure;
     private string? _failureDetail;
 
@@ -42,11 +38,12 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 
         try
         {
-            _webView = new WebView();
+            // No builder call and no AppBuilder extension: unlike the previous library, this
+            // control needs no initialisation before it can be constructed.
+            _webView = new NativeWebView();
         }
         catch (Exception e)
         {
-            // Missing WebView2 runtime on Windows, missing libwebkit2gtk on Linux, ...
             Fail(e.Message);
             // The shell reads IsAvailable straight after this returns and swaps in the diagnostic
             // panel, so this placeholder is never actually seen.
@@ -55,12 +52,11 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 
         _webView.WebMessageReceived += OnWebMessageReceived;
         _webView.NavigationCompleted += OnNavigationCompleted;
-        _webView.WebViewCreated += OnWebViewCreated;
 
         // Every navigation away from the editor document is a link click: open it in the user's
         // real browser instead of replacing the editing surface.
-        _webView.NavigationStarting += OnNavigationStarting;
-        _webView.WebViewNewWindowRequested += OnNewWindowRequested;
+        _webView.NavigationStarted += OnNavigationStarting;
+        _webView.NewWindowRequested += OnNewWindowRequested;
 
         return _webView;
     }
@@ -75,15 +71,11 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         }
 
         _documentLoaded = false;
-        // Tells OnNavigationStarting that the navigation it is about to see is our own document
-        // and not a link the user clicked.
-        _loadingOwnDocument = true;
-
         return Dispatcher.UIThread.InvokeAsync(() =>
         {
-            // HtmlContent feeds the document straight into the native control; no temp files and
-            // no local HTTP server, which keeps the whole surface origin-less and CSP-friendly.
-            _webView.HtmlContent = html;
+            // Feeds the document straight into the native control; no temp files and no local
+            // HTTP server, which keeps the whole surface origin-less and CSP-friendly.
+            _webView.NavigateToString(html);
         }).GetTask();
     }
 
@@ -105,7 +97,7 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         {
             try
             {
-                await _webView.ExecuteScriptAsync(script);
+                await _webView.InvokeScript(script);
             }
             catch (Exception)
             {
@@ -118,10 +110,9 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 
     // ------------------------------------------------------------------ WebView events
 
-    private void OnWebMessageReceived(object? sender, WebViewMessageReceivedEventArgs e)
+    private void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
-        // The engine posts JSON strings; MessageAsJson is populated by WebView2, Message by the others.
-        var payload = string.IsNullOrEmpty(e.Message) ? e.MessageAsJson : e.Message;
+        var payload = e.Body;
         if (string.IsNullOrEmpty(payload))
         {
             return;
@@ -143,36 +134,20 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         MessageReceived?.Invoke(this, payload);
     }
 
-    private void OnNavigationCompleted(object? sender, WebViewUrlLoadedEventArg e) => FlushPendingScripts();
+    private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e) =>
+        FlushPendingScripts();
 
-    private void OnWebViewCreated(object? sender, WebViewCreatedEventArgs e)
+    private void OnNavigationStarting(object? sender, WebViewNavigationStartingEventArgs e)
     {
-        // This, not an exception from the constructor, is how a missing WebView2 runtime usually
-        // announces itself: the Avalonia control builds fine and the *native* backend behind it
-        // fails later. Reporting it here is what stops the app showing an empty editor area.
-        if (!e.IsSucceed)
-        {
-            Fail(e.Message);
-        }
-    }
+        var url = e.Request?.ToString();
 
-    private void OnNavigationStarting(object? sender, WebViewUrlLoadingEventArg e)
-    {
-        var url = e.Url?.ToString();
-
-        // The editor document itself must be allowed through, and the backends disagree about
-        // what it looks like: WKWebView and WebKitGTK report about:blank, but WebView2 loads
-        // HtmlContent by navigating to a data:text/html URL. Treating only about: as our own
-        // document cancelled the document load on Windows, which left a blank editor that never
-        // signalled ready — no error, no crash, just nothing.
-        //
-        // The data: form is additionally gated on _loadingOwnDocument so that only the navigation
-        // we just triggered is allowed; a data: URL arriving from anywhere else is still a link.
+        // The editor document itself must be allowed through. NavigateToString lands on about:blank
+        // here rather than the data: URL the previous library used, but both shapes are treated as
+        // ours: cancelling the document load leaves a blank editor that never signals ready.
         if (string.IsNullOrEmpty(url) ||
             url.StartsWith("about:", StringComparison.OrdinalIgnoreCase) ||
-            (_loadingOwnDocument && url.StartsWith("data:text/html", StringComparison.OrdinalIgnoreCase)))
+            url.StartsWith("data:text/html", StringComparison.OrdinalIgnoreCase))
         {
-            _loadingOwnDocument = false;
             return;
         }
 
@@ -180,11 +155,11 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         OpenInSystemBrowser(url);
     }
 
-    private void OnNewWindowRequested(object? sender, WebViewNewWindowEventArgs e)
+    private void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
     {
         // Keep the editor in place; the link opens outside the app instead.
-        e.UrlLoadingStrategy = UrlRequestStrategy.CancelLoad;
-        var url = e.Url?.ToString();
+        e.Handled = true;
+        var url = e.Request?.ToString();
         if (!string.IsNullOrEmpty(url))
         {
             OpenInSystemBrowser(url);
@@ -224,7 +199,7 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
 
     /// <summary>
     /// Records a backend failure once and tells the shell, so the diagnostic panel can replace the
-    /// editor whether the failure arrived synchronously or from the WebViewCreated event.
+    /// editor whether the failure arrived synchronously or later.
     /// </summary>
     private void Fail(string? detail)
     {
@@ -236,15 +211,13 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
         _failure = DescribeFailure();
         _failureDetail = string.IsNullOrWhiteSpace(detail) ? null : detail;
 
-        // The event may arrive off the UI thread; the shell touches controls in its handler.
         Dispatcher.UIThread.Post(() => BecameUnavailable?.Invoke(this, EventArgs.Empty));
     }
 
     /// <summary>
     /// Written for whoever is looking at the screen, which on Windows is usually someone who has
     /// never heard of WebView2: name the missing thing, say it is free and safe to install, and
-    /// give the one address or command that fixes it. The exception text is kept separately in
-    /// <see cref="UnavailableDetail"/> rather than mixed into this.
+    /// give the one address or command that fixes it.
     /// </summary>
     private static string DescribeFailure()
     {
@@ -265,9 +238,8 @@ public sealed class WebViewEditorSurface : IEditorSurface, IWebViewTransport
                    "On older distributions the package is named libwebkit2gtk-4.0-37.";
         }
 
-        return "RioEditor shows your document using WKWebView, which is part of macOS, so this " +
-               "failure is unexpected.\n\n" +
-               "Restarting RioEditor may clear it. If it keeps happening, please report the " +
-               "details below.";
+        return "RioEditor could not start its editing surface, which is unexpected on this " +
+               "platform.\n\nRestarting RioEditor may clear it. If it keeps happening, please " +
+               "report the details below.";
     }
 }

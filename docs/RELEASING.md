@@ -112,16 +112,55 @@ effectively abandoned: last code commit August 2023, 71 open issues. Nothing is 
 same library whose macOS backend already forced `RioEditor.Desktop.MacOS` into existence (README
 section 5).
 
-The replacement is **`Avalonia.Controls.WebView`** — first-party (AvaloniaUI OÜ), MIT, and more
-downloaded than the package it replaces. Probing the 12.1.0 assembly shows every API the bridge
-relies on: `NavigateToString`, `HtmlContent`, `ExecuteScript`, `WebMessageReceived`,
-`PostWebMessage`, `NavigationStarting`, `NewWindowRequested` — plus
-`AddScriptToExecuteOnDocumentCreated`, which we do not have today and which could retire the
-pending-scripts queue in `WebViewEditorSurface` entirely.
+The replacement is **`Avalonia.Controls.WebView`** — first-party (AvaloniaUI OÜ), public and MIT
+on GitHub, and more downloaded than the package it replaces. Its `NativeWebView` control covers
+everything the bridge needs, and it needs no initialisation call at all.
 
 Its TFMs are `net10.0`, `net10.0-android36.0` and `net10.0-browser1.0` — **no iOS or macOS**. That
 costs nothing here: both Apple heads use native `WKWebView` through `Shared.WebKit` and are
 untouched by any of this.
+
+#### It needs a licence key, despite all appearances
+
+This was spiked (branch `spike/native-webview`) and it is the one thing that would have derailed
+the migration silently. Every signal says the package is free — MIT on NuGet, MIT public repo, and
+the pricing page shows a tick for WebView in **all four tiers including Free**, unlike MediaPlayer
+or TreeDataGrid which are marked "—" on the lower tiers.
+
+The build still fails:
+
+```
+AvaloniaUI.Licensing error AVLIC0001: No valid AvaloniaUI license keys found for
+required commercial products: "Avalonia.Controls.WebView"
+```
+
+The component came from Avalonia Accelerate, which has since been retired and folded into
+Avalonia's Free/Plus/Pro tiers, but the licence check came with it. **Being free is not the same as
+being buildable**: a key from the Avalonia Portal has to be supplied through the
+`AvaloniaUILicenseKey` MSBuild item. Plan for an account, a key on every developer machine and a
+CI secret — not for a package reference.
+
+Nothing else blocks it. The port compiles with **zero C# errors**; `AVLIC0001` is the only failure.
+
+#### What the port established
+
+| Today (`WebView.Avalonia`) | Replacement |
+| --- | --- |
+| `UseDesktopWebView()` + `AvaloniaWebViewBuilder.Initialize()` | nothing — no initialisation |
+| `HtmlContent = html` | `NavigateToString(html)` |
+| `ExecuteScriptAsync(s)` | `InvokeScript(s)` |
+| `WebMessageReceived` → `Message` / `MessageAsJson` | `WebMessageReceived` → `Body` |
+| `NavigationStarting` | `NavigationStarted` (still has `Cancel`) |
+| `NewWindowRequested` → `UrlLoadingStrategy` | `NewWindowRequested` → `Handled` |
+
+`DesktopApp.cs` disappears with it — registering the backend was its only job. And `NativeWebView`
+exposes `PrintToPdfStreamAsync`, which would give Windows and Linux real PDF export instead of the
+`window.print()` fallback they fall back to today (README section 6, tier 3).
+
+**One question the spike could not answer**, because it needs a build that runs: how a missing
+WebView2 runtime surfaces. There is no `WebViewCreated`/`IsSucceed` equivalent; `AdapterCreated`
+and `AdapterInfo` look like the replacement, but that is untested and the diagnostic panel depends
+on getting it right.
 
 ### Work breakdown
 
@@ -129,9 +168,10 @@ untouched by any of this.
 | --- | --- | --- |
 | Version bumps across six csprojs and `Directory.Build.props` | S | high |
 | `Avalonia.ReactiveUI` → `ReactiveUI.Avalonia` (ReactiveUI 20.1.1 → 24.1.0, four majors) | M | **low** |
-| Rewrite `WebViewEditorSurface` (273 lines) onto `Avalonia.Controls.WebView` | M | high, APIs map ~1:1 |
+| Rewrite `WebViewEditorSurface` (273 lines) onto `Avalonia.Controls.WebView` | S | **spiked — compiles with zero C# errors** |
 | Avalonia 12 breaking changes across the XAML and all five heads | M | **low** until it compiles |
 | Android TFM `net10.0-android` → `android36.0`, CI workload updates | S | medium |
+| Obtain an Avalonia Portal licence key; wire it into every dev machine and CI | S | **required — the build fails without it** |
 | Re-verification on five platforms | **L** | — |
 
 The ReactiveUI surface in play is 53 `ReactiveCommand` uses, 14 `RaiseAndSetIfChanged`, plus
@@ -148,7 +188,8 @@ separated:
 
 1. **Replace the dead WebView library while staying on Avalonia 11.** Isolated to the desktop head,
    everything else frozen. Removes an abandoned dependency on its own schedule, and independently
-   revisits the reason the macOS head exists.
+   revisits the reason the macOS head exists. The code for this is already written on
+   `spike/native-webview`; it needs a licence key, not more engineering.
 2. **Then move to Avalonia 12 and ReactiveUI 24.** With the WebView already migrated, anything that
    breaks is unambiguously Avalonia or ReactiveUI.
 

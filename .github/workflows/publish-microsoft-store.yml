@@ -83,6 +83,9 @@ jobs:
 
       - uses: microsoft/microsoft-store-apppublisher@v1.4
 
+      # --verbose on purpose: without it a bad credential reports only "Really failed to auth"
+      # after three retries, which does not distinguish a wrong secret from an app that was never
+      # associated with Partner Center. GitHub masks the secret values in the log either way.
       - name: Sign in to Partner Center
         shell: pwsh
         run: >
@@ -91,6 +94,13 @@ jobs:
           --sellerId ${{ secrets.PARTNER_CENTER_SELLER_ID }}
           --clientId ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
           --clientSecret ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+          --verbose
+
+      # Proves the credentials can actually reach the account, and fails here rather than
+      # halfway through an upload if they cannot.
+      - name: Confirm the account is reachable
+        shell: pwsh
+        run: msstore apps list
 
       # A manual run defaults to --noCommit, which uploads the package and leaves the submission
       # in draft for a human to review in Partner Center. A tag push commits it.

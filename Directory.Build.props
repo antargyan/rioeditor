@@ -12,9 +12,21 @@
   <!--
     Single source of truth for the product version.
 
-    RioVersion is the semantic, user-visible version; RioBuild is a monotonic build number that
-    the stores require to increase with every upload, independently of the display version.
-    Both are plain properties, so CI overrides them from a tag without editing anything:
+    RioVersion is the semantic, user-visible version. RioBuild is the STORE UPLOAD COUNTER: every
+    store refuses an upload whose build number it has already seen, and all three read this one
+    property.
+
+        Google Play       android:versionCode              <- ApplicationVersion <- RioBuild
+        App Store         CFBundleVersion                  <- ApplicationVersion <- RioBuild
+        Microsoft Store   third field of the MSIX version                        <- RioBuild
+
+    RioBuild must ONLY EVER INCREASE, and must never reset when RioVersion changes. The Microsoft
+    Store compares whole package versions, so a reset would produce a version lower than one
+    already published and the upload would bounce. Bump it with:
+
+        powershell.exe -ExecutionPolicy Bypass -File packaging/bump-build.ps1
+
+    Both are plain properties, so CI can override them from a tag without editing anything:
 
         dotnet build -p:RioVersion=1.2.0 -p:RioBuild=57
 
@@ -22,7 +34,7 @@
   -->
   <PropertyGroup>
     <RioVersion>1.0.0</RioVersion>
-    <RioBuild>1</RioBuild>
+    <RioBuild>2</RioBuild>
 
     <!-- .NET assembly identity -->
     <Version>$(RioVersion)</Version>

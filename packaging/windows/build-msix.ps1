@@ -18,8 +18,10 @@
 .EXAMPLE
     powershell.exe -ExecutionPolicy Bypass -File packaging\windows\build-msix.ps1 -IdentityName '12345YourCompany.RioEditor' -Publisher 'CN=ABCDEF12-3456-7890-ABCD-EF1234567890' -PublisherDisplayName 'Your Company' -DisplayName 'Your Reserved App Name'
 
-    -DisplayName must be a name reserved for the product in Partner Center. The version comes
-    from RioVersion in Directory.Build.props unless -Version overrides it.
+    -DisplayName must be a name reserved for the product in Partner Center.
+
+    The package version is major.minor.RioBuild.0, taken from Directory.Build.props, so bumping
+    RioBuild with packaging/bump-build.ps1 is what makes a re-upload possible. -Version overrides.
 #>
 [CmdletBinding()]
 param(
@@ -28,7 +30,7 @@ param(
     [string]   $PublisherDisplayName = 'REPLACE WITH PUBLISHER DISPLAY NAME',
     # Must be a name RESERVED for the product in Partner Center, not a friendly label.
     [string]   $DisplayName          = 'RioEditor : MarkDown Editor',
-    # Defaults to RioVersion from Directory.Build.props; see Resolve-Version below.
+    # Defaults to major.minor.RioBuild.0 from Directory.Build.props; see Resolve-Version.
     [string]   $Version,
     [string[]] $Architectures        = @('x64', 'arm64'),
     [string]   $Configuration        = 'Release',
@@ -51,25 +53,35 @@ $stagingRoot = Join-Path $OutputDirectory '_staging'
 # Directory.Build.props is the single source of truth for the product version across every
 # platform, so the package takes its version from there rather than keeping a second copy.
 #
-# RioBuild deliberately does NOT become the fourth field: the Store reserves the revision and
-# rejects anything non-zero there. A second upload of the same RioVersion therefore needs
-# RioVersion bumped (or -Version passed explicitly) — the Store will not accept a version it
-# has already seen.
+# The package version is major.minor.RioBuild.0, which makes RioBuild the upload counter here
+# exactly as it already is for Google Play's versionCode and Apple's CFBundleVersion — one knob
+# for all three stores, bumped by packaging\bump-build.ps1.
+#
+# RioBuild cannot be the fourth field: the Store reserves the revision and rejects anything
+# non-zero there. It goes in the third instead, which costs RioVersion's patch component in the
+# package version. That is a fair trade — the patch is still the user-facing version everywhere
+# it is actually read, and without this a re-upload of the same release is impossible.
 function Resolve-Version {
     $props = Join-Path $repoRoot 'Directory.Build.props'
     if (-not (Test-Path $props)) { throw "Directory.Build.props not found at $props." }
 
     # XPath rather than property access: Directory.Build.props has several PropertyGroup
-    # elements and only one carries RioVersion, which Set-StrictMode turns into an error.
-    $node = ([xml](Get-Content $props)).SelectSingleNode('/Project/PropertyGroup/RioVersion')
-    if (-not $node) { throw "RioVersion not found in $props; pass -Version explicitly." }
+    # elements and only one carries these, which Set-StrictMode turns into an error.
+    $xml     = [xml](Get-Content $props)
+    $version = $xml.SelectSingleNode('/Project/PropertyGroup/RioVersion')
+    $build   = $xml.SelectSingleNode('/Project/PropertyGroup/RioBuild')
+    if (-not $version) { throw "RioVersion not found in $props; pass -Version explicitly." }
+    if (-not $build)   { throw "RioBuild not found in $props; pass -Version explicitly." }
 
-    return "$($node.InnerText.Trim()).0"
+    $parts = $version.InnerText.Trim().Split('.')
+    if ($parts.Count -lt 2) { throw "RioVersion '$($version.InnerText)' is not major.minor.patch." }
+
+    return "{0}.{1}.{2}.0" -f $parts[0], $parts[1], $build.InnerText.Trim()
 }
 
 if (-not $Version) {
     $Version = Resolve-Version
-    Write-Host "version  : $Version (RioVersion from Directory.Build.props)"
+    Write-Host "version  : $Version (RioVersion + RioBuild from Directory.Build.props)"
 }
 
 # The Store owns the revision field and rejects a package that sets it.

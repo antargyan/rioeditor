@@ -312,12 +312,13 @@ identity name and publisher, so registering the package locally and comparing
 
 ### Versioning
 
-`-Version` defaults to `RioVersion` from `Directory.Build.props` with `.0` appended, so the package
-does not keep a second copy of the product version.
+The package version is `major.minor.RioBuild.0`, taken from `Directory.Build.props`, so the package
+keeps no second copy of the product version and **`RioBuild` is the upload counter here exactly as
+it is for Play and the App Store**. `-Version` overrides it.
 
-`RioBuild` deliberately does *not* become the fourth field. The Store reserves the revision and
-rejects anything non-zero there, so a second upload of the same `RioVersion` needs `RioVersion`
-bumped (or `-Version` passed explicitly) — the Store will not accept a version it has already seen.
+`RioBuild` cannot be the fourth field: the Store reserves the revision and rejects anything
+non-zero there. It goes in the third instead, which costs `RioVersion`'s patch component in the
+package version — a fair trade, since without it a re-upload of the same release is impossible.
 
 ### Tile artwork
 
@@ -390,8 +391,29 @@ minutes per build; worth enabling once the demo gets real traffic.
 `Directory.Build.props` holds the single source of truth:
 
 - **`RioVersion`** — the semantic, user-visible version (`1.0.0`)
-- **`RioBuild`** — a monotonic build number, which the stores require to increase on *every* upload
-  regardless of whether the display version changed
+- **`RioBuild`** — the store upload counter, which every store requires to increase on *every*
+  upload regardless of whether the display version changed
+
+All three stores read `RioBuild`, under three different names:
+
+| Store | Field | Comes from |
+| --- | --- | --- |
+| Google Play | `android:versionCode` | `ApplicationVersion` ← `RioBuild` |
+| App Store | `CFBundleVersion` | `ApplicationVersion` ← `RioBuild` |
+| Microsoft Store | third field of the MSIX version | `RioBuild` |
+
+Bump it before every upload — one command, all three stores:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File packaging/bump-build.ps1
+powershell.exe -ExecutionPolicy Bypass -File packaging/bump-build.ps1 -SetVersion 1.1.0   # and move the display version
+powershell.exe -ExecutionPolicy Bypass -File packaging/bump-build.ps1 -WhatIf             # preview only
+```
+
+**`RioBuild` must only ever increase, and must never reset when `RioVersion` changes.** The
+Microsoft Store compares whole package versions, so a reset would produce a version lower than one
+already published and the upload would bounce. CI can drive it from the run number instead of the
+checked-in value: `dotnet build -p:RioBuild=$GITHUB_RUN_NUMBER`.
 
 Both are ordinary MSBuild properties, so CI overrides them from a tag without editing any file —
 command-line properties are global in MSBuild and win over the defaults:

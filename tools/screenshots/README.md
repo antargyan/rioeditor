@@ -20,6 +20,7 @@ battery) so every shot looks intentional.
 
 | Slot | Device | Pixels |
 | --- | --- | --- |
+| iPhone 6.9" | iPhone 17 Pro Max | 1320 × 2868 |
 | iPhone 6.5" | iPhone 11 Pro Max | 1242 × 2688 |
 | iPad 13" | iPad Pro 13-inch (M5) | 2064 × 2752 |
 | macOS | app window at 1440 × 900 points | 2880 × 1800 |

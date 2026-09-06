@@ -1,6 +1,8 @@
 # Releasing RioEditor
 
 The delivery plan for the six targets, what each one needs, and what is still missing.
+Step-by-step for obtaining and setting the credentials is in
+[STORE-CREDENTIALS.md](STORE-CREDENTIALS.md).
 Nothing here is wired up yet beyond CI — the release workflows are deliberately not committed
 until the accounts and secrets below exist, because a half-configured signing pipeline fails in
 confusing ways months later.

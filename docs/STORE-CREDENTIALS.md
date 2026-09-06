@@ -9,7 +9,7 @@ Three GitHub **environments**, one per store. Create them under
 | Environment | Used by | Secrets | Status |
 | --- | --- | --- | --- |
 | `microsoft-store` | `publish-microsoft-store.yml` | 4 | **working** — published a draft submission |
-| `google-play` | `publish-google-play.yml` | 5 | not set up |
+| `google-play` | `publish-google-play.yml` | 5 | **working** — uploaded to the internal track |
 | `app-store` | `publish-app-store.yml` | 5 | not set up |
 | `apple-developer-id` | `publish-macos.yml` | 5 (3 shared with `app-store`) | not set up |
 
@@ -134,10 +134,38 @@ base64 -w0 rioeditor-upload.jks | pbcopy   # or | xclip -selection clipboard
 | `ANDROID_KEY_PASSWORD` | key password from step 1 |
 | `PLAY_SERVICE_ACCOUNT_JSON` | the entire JSON file contents, verbatim |
 
+### 5. Upload the first bundle by hand
+
+The API can update an app but cannot create one, so the very first AAB has to go up through the
+Play Console UI. Run the workflow once to produce a bundle, download the `android-aab` artifact,
+and upload that. After that the workflow can take over.
+
 > **The Play workflow is manual-only right now.** Google Play rejects 64-bit native libraries
 > that are not 16 KB page aligned on Android 16, and the `libSkiaSharp.so` we ship is 4 KB
-> aligned. Fixed by the Avalonia 12 migration — see [RELEASING.md](RELEASING.md). You can set the
-> credentials up now; uploads will not pass review until then.
+> aligned. Fixed by the Avalonia 12 migration — see [RELEASING.md](RELEASING.md). Uploads work
+> today and are fine for internal testing; they will not pass review until then.
+
+### Two things that cost a run here
+
+**`dotnet publish` emits two bundles** — `ai.rioeditor.editor.aab` and
+`ai.rioeditor.editor-Signed.aab`. Uploading the unsigned one gets
+`All uploaded bundles must be signed. Please sign the bundle using jarsigner.`, which reads like a
+signing failure when signing actually worked. The workflow now selects `*-Signed.aab` explicitly
+and fails if it is absent.
+
+**`keytool` is not on `PATH` on Windows.** It ships inside the JDK. The one the Android workload
+installs lives at:
+
+```
+C:\Program Files\Android\openjdk\jdk-21.0.8\bin\keytool.exe
+```
+
+Verify a bundle really is signed with the `jarsigner.exe` beside it — `jar verified` plus the
+expected `CN=` is the confirmation:
+
+```bash
+jarsigner -verify -verbose:summary -certs ai.rioeditor.editor-Signed.aab
+```
 
 ---
 
@@ -230,27 +258,27 @@ reissued.
 ## Suggested order
 
 0. **Microsoft Store** — done
-1. **Android keystore** (steps 1–2) — needs no account, can be done immediately
+1. **Google Play** — done
 2. **Apple Developer Program** — one enrolment unlocks both iOS and macOS
 3. **App Store Connect API key** — shared by iOS and macOS notarization
 4. **The two certificates** — Apple Distribution for iOS, Developer ID Application for macOS
-5. **Google Play account** — cheapest, but the store is blocked until Avalonia 12 anyway
 
 ## First run of each workflow
 
 Every one has a safe mode; use it before trusting a tag.
 
-| Workflow | Safe first run |
-| --- | --- |
-| `publish-microsoft-store.yml` | manual with `draft: true` — uploads without committing the submission |
-| `publish-google-play.yml` | manual, `track: internal`, `status: draft` |
-| `publish-app-store.yml` | manual — TestFlight is not the App Store |
-| `publish-macos.yml` | manual — produces a **draft** GitHub Release |
+| Workflow | Safe first run | Proven? |
+| --- | --- | --- |
+| `publish-microsoft-store.yml` | manual with `draft: true` — uploads without committing the submission | yes |
+| `publish-google-play.yml` | manual, `track: internal`, `status: draft` | yes |
+| `publish-app-store.yml` | manual — TestFlight is not the App Store | no |
+| `publish-macos.yml` | manual — produces a **draft** GitHub Release | no |
 
-The Microsoft Store workflow has run for real and works. The other three never have — they are
-written from each action's documented input contract, so expect the first run of each to need
-adjustment. For calibration: the Microsoft Store one took two attempts *with working credentials*,
-the first failing on the Secret ID / Value confusion described above.
+Microsoft Store and Google Play have both run for real and work. iOS and macOS never have — they
+are written from each action's documented input contract, so expect the first run of each to need
+adjustment. For calibration, both working ones took **two attempts each** with valid credentials:
+Windows failed first on the Secret ID / Value confusion, Android on uploading the unsigned
+bundle. Neither failure was in the credentials themselves.
 
 ## What is not needed
 

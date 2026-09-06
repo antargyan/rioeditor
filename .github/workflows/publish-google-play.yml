@@ -68,16 +68,29 @@ jobs:
             -p:AndroidSigningKeyPass='${{ secrets.ANDROID_KEY_PASSWORD }}' \
             -o publish/android
 
-      - name: Find the AAB
+      # dotnet publish emits BOTH ai.rioeditor.editor.aab (unsigned) and
+      # ai.rioeditor.editor-Signed.aab. A `find -name A -o -name B` returns them in directory
+      # order rather than preference order, which picked the unsigned one and got
+      # "All uploaded bundles must be signed" from Play. Look for the signed one and fail loudly
+      # if it is missing, rather than silently falling back to a bundle Play will reject.
+      - name: Find the signed AAB
         id: aab
-        run: echo "path=$(find publish/android -name '*-Signed.aab' -o -name '*.aab' | head -1)" >> "$GITHUB_OUTPUT"
+        run: |
+          signed=$(find publish/android -name '*-Signed.aab' | head -1)
+          if [ -z "$signed" ]; then
+            echo "No *-Signed.aab under publish/android. Signing did not happen:" >&2
+            find publish/android -name '*.aab' >&2
+            exit 1
+          fi
+          echo "path=$signed" >> "$GITHUB_OUTPUT"
+          echo "signed bundle: $signed"
 
       - name: Keep the AAB
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: android-aab
-          path: publish/android/*.aab
+          path: publish/android/*-Signed.aab
           if-no-files-found: error
           retention-days: 30
 
@@ -85,8 +98,8 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ env.PACKAGE_NAME }}
-          releaseFile: ${{ steps.aab.outputs.path }}
-          track: ${{ inputs.track }}
+          releaseFiles: ${{ steps.aab.outputs.path }}
+          tracks: ${{ inputs.track }}
           status: ${{ inputs.status }}
 
       - name: Shred the keystore

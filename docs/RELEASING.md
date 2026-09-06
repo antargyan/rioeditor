@@ -120,29 +120,35 @@ Its TFMs are `net10.0`, `net10.0-android36.0` and `net10.0-browser1.0` — **no 
 costs nothing here: both Apple heads use native `WKWebView` through `Shared.WebKit` and are
 untouched by any of this.
 
-#### It needs a licence key, despite all appearances
+#### Use 11.4.0 or later: earlier versions demand a licence key
 
-This was spiked (branch `spike/native-webview`) and it is the one thing that would have derailed
-the migration silently. Every signal says the package is free — MIT on NuGet, MIT public repo, and
-the pricing page shows a tick for WebView in **all four tiers including Free**, unlike MediaPlayer
-or TreeDataGrid which are marked "—" on the lower tiers.
-
-The build still fails:
+Spiked on branch `spike/native-webview`, and this is the trap. Pick the package version by
+matching your Avalonia version and the build fails:
 
 ```
 AvaloniaUI.Licensing error AVLIC0001: No valid AvaloniaUI license keys found for
 required commercial products: "Avalonia.Controls.WebView"
 ```
 
+`11.4.x` is the **package's own** versioning, not Avalonia's — it still targets Avalonia 11.1.0, so
+it works fine on our 11.3.x line. The licensing dependency tracks the version, not the framework:
+
+| `Avalonia.Controls.WebView` | Avalonia dep | `AvaloniaUI.Licensing` |
+| --- | --- | --- |
+| 11.3.14, 11.3.16 | 11.1.0 | **yes — build fails without a key** |
+| 11.4.0, 11.4.1 | 11.1.0 | no |
+| 12.0.0 and later | 12.0.0 | no |
+
 The component came from Avalonia Accelerate, which has since been retired and folded into
-Avalonia's Free/Plus/Pro tiers, but the licence check came with it. **Being free is not the same as
-being buildable**: a key from the Avalonia Portal has to be supplied through the
-`AvaloniaUILicenseKey` MSBuild item. Plan for an account, a key on every developer machine and a
-CI secret — not for a package reference.
+Avalonia's Free/Plus/Pro tiers; the licence check was dropped in 11.4.0 as part of that. WebView is
+also absent from the "Avalonia Pro packages" list in Avalonia's own install guide, unlike Charts,
+MediaPlayer and TreeDataGrid. **Pin 11.4.1 or later and no key is needed.**
 
-Nothing else blocks it. The port compiles with **zero C# errors**; `AVLIC0001` is the only failure.
+#### Step 1 is done and verified on Windows
 
-#### What the port established
+On 11.4.1 the desktop head builds with no key, no errors and no warnings, and it runs: the welcome
+document and a file passed on the command line both render in a real WebView2 through the ported
+surface. The code is on `spike/native-webview`.
 
 | Today (`WebView.Avalonia`) | Replacement |
 | --- | --- |
@@ -153,14 +159,22 @@ Nothing else blocks it. The port compiles with **zero C# errors**; `AVLIC0001` i
 | `NavigationStarting` | `NavigationStarted` (still has `Cancel`) |
 | `NewWindowRequested` → `UrlLoadingStrategy` | `NewWindowRequested` → `Handled` |
 
-`DesktopApp.cs` disappears with it — registering the backend was its only job. And `NativeWebView`
+`DesktopApp.cs` disappears with it — registering the backend was its only job. `NativeWebView` also
 exposes `PrintToPdfStreamAsync`, which would give Windows and Linux real PDF export instead of the
-`window.print()` fallback they fall back to today (README section 6, tier 3).
+`window.print()` fallback they use today (README section 6, tier 3). On the engine side, the
+JavaScript channel is `invokeCSharpAction(...)`, so `postToHost` in `editor.js` needs one more
+branch alongside the four it already has.
 
-**One question the spike could not answer**, because it needs a build that runs: how a missing
-WebView2 runtime surfaces. There is no `WebViewCreated`/`IsSucceed` equivalent; `AdapterCreated`
-and `AdapterInfo` look like the replacement, but that is untested and the diagnostic panel depends
-on getting it right.
+**Not yet verified: Linux.** WebKitGTK is the backend there and none of this has been exercised on
+it. That is what stands between the spike and a merge.
+
+**One question remains open**: how a missing WebView2 runtime surfaces. There is no
+`WebViewCreated`/`IsSucceed` equivalent, and `AdapterCreated`/`AdapterInfo` look like the
+replacement but are untested. The trick that proved the diagnostic panel against the old library —
+pointing `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` at a folder that does not exist — no longer
+reproduces a failure, because this control does not consult that variable. So the panel's Windows
+path is untested rather than known broken, and closing it needs a machine without the runtime or a
+different lever.
 
 ### Work breakdown
 
@@ -168,10 +182,9 @@ on getting it right.
 | --- | --- | --- |
 | Version bumps across six csprojs and `Directory.Build.props` | S | high |
 | `Avalonia.ReactiveUI` → `ReactiveUI.Avalonia` (ReactiveUI 20.1.1 → 24.1.0, four majors) | M | **low** |
-| Rewrite `WebViewEditorSurface` (273 lines) onto `Avalonia.Controls.WebView` | S | **spiked — compiles with zero C# errors** |
+| Rewrite `WebViewEditorSurface` (273 lines) onto `Avalonia.Controls.WebView` | S | **done — builds and runs on Windows**; Linux unverified |
 | Avalonia 12 breaking changes across the XAML and all five heads | M | **low** until it compiles |
 | Android TFM `net10.0-android` → `android36.0`, CI workload updates | S | medium |
-| Obtain an Avalonia Portal licence key; wire it into every dev machine and CI | S | **required — the build fails without it** |
 | Re-verification on five platforms | **L** | — |
 
 The ReactiveUI surface in play is 53 `ReactiveCommand` uses, 14 `RaiseAndSetIfChanged`, plus
@@ -188,8 +201,8 @@ separated:
 
 1. **Replace the dead WebView library while staying on Avalonia 11.** Isolated to the desktop head,
    everything else frozen. Removes an abandoned dependency on its own schedule, and independently
-   revisits the reason the macOS head exists. The code for this is already written on
-   `spike/native-webview`; it needs a licence key, not more engineering.
+   revisits the reason the macOS head exists. **Already done and working on Windows** on branch
+   `spike/native-webview`; Linux is what is left.
 2. **Then move to Avalonia 12 and ReactiveUI 24.** With the WebView already migrated, anything that
    breaks is unambiguously Avalonia or ReactiveUI.
 

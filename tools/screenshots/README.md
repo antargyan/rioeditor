@@ -49,5 +49,24 @@ xcrun simctl io <udid> screenshot out.png
 Allow several seconds after launch before capturing: the WebView has to render, highlight code,
 and fetch KaTeX and Mermaid from the CDN.
 
+## macOS
+
+```bash
+python3 tools/screenshots/seed-mac.py IPAD_A Light
+open src/RioEditor.Desktop.MacOS/bin/Release/net10.0-macos/osx-arm64/RioEditor.app
+osascript -e 'tell application "System Events" to tell process "RioEditor"
+  set frontmost to true
+  set position of window 1 to {40, 60}
+  set size of window 1 to {1280, 800}
+end tell'
+screencapture -x -o -R40,60,1280,800 out.png     # 2560 x 1600 on a Retina display
+```
+
+**Use 1280 x 800, not 1440 x 900.** Both are accepted App Store sizes, but AppKit clamps a window
+to the visible frame — screen minus menu bar minus Dock — and on a 1512 x 982 point display that
+caps the height at about 864. Asking for 900 silently yields a shorter window, and the capture
+region then includes a strip of desktop below it. 1280 x 800 fits with room to spare.
+
 **macOS needs an unlocked session.** Simulator captures read the framebuffer directly and work
-regardless, but window capture does not.
+regardless, but window capture does not: on a locked Mac the window is not in the accessibility
+tree at all, and `System Events` reports "Can't get window 1".

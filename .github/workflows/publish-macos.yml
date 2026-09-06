@@ -50,17 +50,24 @@ jobs:
           p12-file-base64: ${{ secrets.MACOS_DEVELOPER_ID_CERT_P12 }}
           p12-password: ${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}
 
+      # CreatePackage=false: publish defaults it to true on macOS and builds an installer .pkg,
+      # which this DMG pipeline never uses. The .app is what gets signed.
       - name: Build the .app
         run: |
           dotnet publish src/RioEditor.Desktop.MacOS -c Release -r osx-arm64 \
             -p:RioBuild=${{ github.run_number }} \
-            -o publish/macos
+            -p:CreatePackage=false
 
       # --options runtime enables the hardened runtime, which notarization requires. --deep is
       # deprecated for signing but still the pragmatic way to cover the bundled .NET dylibs.
       - name: Sign
         run: |
-          APP=$(find publish/macos -maxdepth 2 -name '*.app' | head -1)
+          # The .app is left in the build output; `dotnet publish -o` copies the .pkg to the
+          # publish directory but never the bundle, so searching there finds nothing and the
+          # signing step below would run against an empty path.
+          APP=$(find src/RioEditor.Desktop.MacOS/bin/Release -maxdepth 4 -type d -name '*.app' | head -1)
+          if [ -z "$APP" ]; then echo "No .app was produced." >&2; exit 1; fi
+          echo "Signing $APP"
           echo "APP=$APP" >> "$GITHUB_ENV"
           codesign --force --deep --timestamp --options runtime \
             --sign "Developer ID Application" "$APP"

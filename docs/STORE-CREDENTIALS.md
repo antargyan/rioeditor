@@ -270,11 +270,26 @@ Every one has a safe mode; use it before trusting a tag.
 | `publish-microsoft-store.yml` | manual with `draft: true` — uploads without committing the submission | yes |
 | `publish-google-play.yml` | manual, `track: internal`, `status: draft` | yes |
 | `publish-app-store.yml` | manual — TestFlight is not the App Store | no |
-| `publish-macos.yml` | manual — produces a **draft** GitHub Release | no |
+| `publish-macos.yml` | manual — produces a **draft** GitHub Release | not end to end; everything up to signing rehearsed locally |
 
 Microsoft Store and Google Play have both run for real and work. iOS and macOS never have — they
-are written from each action's documented input contract, so expect the first run of each to need
-adjustment. For calibration, both working ones took **two attempts each** with valid credentials:
+were written from each action's documented input contract, so expect the first run of each to need
+adjustment.
+
+Two bugs in them were found and fixed *before* any run, by rehearsing the unsigned parts on a Mac:
+
+- `publish-macos.yml` looked for the `.app` under the publish directory. `dotnet publish -o` copies
+  the installer `.pkg` there but never the bundle, which stays in the build output — so the search
+  returned nothing and the signing step would have run against an empty path. It now searches the
+  build output and fails loudly if there is no bundle, and passes `CreatePackage=false` so the
+  unused `.pkg` is not built at all.
+- `publish-app-store.yml` passed `ArchiveOnBuild=true`, a legacy Xamarin property that does not
+  exist in the .NET 10 iOS SDK. Harmless, but misleading: publishing sets `BuildIpa` itself and
+  `IpaPackageDir` already defaults to the publish directory.
+
+The rest of the macOS route was exercised locally: the `.app` builds with the right identifier,
+version and icon, and a mountable 62 MB DMG is produced with the `/Applications` symlink. Only
+signing, notarisation and stapling are unproven, and all three need the certificates. For calibration, both working ones took **two attempts each** with valid credentials:
 Windows failed first on the Secret ID / Value confusion, Android on uploading the unsigned
 bundle. Neither failure was in the credentials themselves.
 

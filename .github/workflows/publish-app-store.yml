@@ -59,11 +59,14 @@ jobs:
 
       # RioBuild becomes CFBundleVersion. App Store Connect refuses a build number it has
       # already seen, so github.run_number drives it rather than the checked-in value.
+      #
+      # No ArchiveOnBuild here: that is a legacy Xamarin property and does not exist in the
+      # .NET 10 iOS SDK. Publishing sets BuildIpa itself, and IpaPackageDir defaults to the
+      # publish directory, which is what the next step searches.
       - name: Archive the iOS app
         run: |
           dotnet publish src/RioEditor.iOS -c Release -f net10.0-ios -r ios-arm64 \
             -p:RioBuild=${{ github.run_number }} \
-            -p:ArchiveOnBuild=true \
             -p:CodesignProvision="RioEditor App Store" \
             -p:CodesignKey="Apple Distribution" \
             -o publish/ios

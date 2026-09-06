@@ -1,7 +1,6 @@
 using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Browser;
-using Avalonia.ReactiveUI;
 using Microsoft.Extensions.DependencyInjection;
 using RioEditor.App.Composition;
 using RioEditor.App.Services;
@@ -24,8 +23,7 @@ internal static class Program
 
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<App.App>()
-            .WithInterFont()
-            .UseReactiveUI();
+            .WithInterFont();
 
     private static IServiceProvider BuildServices() =>
         new ServiceCollection()

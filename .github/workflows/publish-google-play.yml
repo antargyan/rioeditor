@@ -1,14 +1,13 @@
 name: Publish to Google Play
 
-# Manual only, deliberately. Google Play rejects 64-bit native libraries that are not 16 KB
-# page aligned on Android 16, and the libSkiaSharp.so we ship today is 4 KB aligned. That is
-# fixed by the Avalonia 12 migration, not here — see docs/RELEASING.md. Tag-triggering this
-# before then would fail on every release for a reason no one could act on.
+# A v* tag publishes; a manual run is for rehearsing on the internal track.
 #
-# Add back once the migration lands:
-#   push:
-#     tags: ['v*']
+# The tag trigger was disabled while our 64-bit libraries were 4 KB page aligned, which Android 16
+# rejects. Avalonia 12 brought SkiaSharp 3.119.4 and all 224 shipped 64-bit .so files are now
+# 16 KB aligned, so it is live again.
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       track:
@@ -99,8 +98,8 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ env.PACKAGE_NAME }}
           releaseFiles: ${{ steps.aab.outputs.path }}
-          tracks: ${{ inputs.track }}
-          status: ${{ inputs.status }}
+          tracks: ${{ inputs.track || 'internal' }}
+          status: ${{ inputs.status || 'draft' }}
 
       - name: Shred the keystore
         if: always()

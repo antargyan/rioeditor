@@ -18,7 +18,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Browser" Version="$(AvaloniaVersion)" />
-    <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="ReactiveUI" Version="$(ReactiveUIVersion)" />
   </ItemGroup>
 
   <ItemGroup>

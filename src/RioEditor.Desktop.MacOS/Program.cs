@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.ReactiveUI;
 using Microsoft.Extensions.DependencyInjection;
 using RioEditor.App.Composition;
 using RioEditor.App.Services;
@@ -26,8 +25,7 @@ internal static class Program
         return AppBuilder.Configure<App.App>()
             .UsePlatformDetect()
             .WithInterFont()
-            .LogToTrace()
-            .UseReactiveUI();
+            .LogToTrace();
     }
 
     private static IServiceProvider BuildServices(string[] args) =>

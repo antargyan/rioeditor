@@ -51,22 +51,23 @@
 
   <!-- Single source of truth for every third-party version used by the solution. -->
   <PropertyGroup>
-    <AvaloniaVersion>11.3.9</AvaloniaVersion>
-    <AvaloniaWebViewVersion>11.4.1</AvaloniaWebViewVersion>
+    <AvaloniaVersion>12.1.2</AvaloniaVersion>
+    <AvaloniaWebViewVersion>12.1.0</AvaloniaWebViewVersion>
+    <!--
+      ReactiveUI referenced directly, without the Avalonia integration package.
+      ReactiveUI.Avalonia (the successor to Avalonia.ReactiveUI) pulls ReactiveUI 24, which has
+      replaced Rx entirely with its own Signals model — Observable, Unit, CompositeDisposable and
+      System.Reactive all gone. That is a rewrite of this app's reactive plumbing, not an upgrade.
+      The only thing the integration package gave us was UseReactiveUI() setting
+      RxApp.MainThreadScheduler; we now marshal through Dispatcher.UIThread directly, which is
+      both smaller and more obvious. Nothing else in it was used: no IViewFor, no WhenActivated,
+      no ReactiveUserControl.
+    -->
+    <ReactiveUIVersion>20.1.1</ReactiveUIVersion>
     <MarkdigVersion>1.3.2</MarkdigVersion>
     <HtmlAgilityPackVersion>1.13.0</HtmlAgilityPackVersion>
     <MicrosoftExtensionsVersion>10.0.0</MicrosoftExtensionsVersion>
 
-    <!--
-      Avalonia's Linux stack pulls in Tmds.DBus.Protocol 0.21.2 transitively, which carries a
-      high-severity advisory (GHSA-xrw6-gwf8-vvr9: malicious D-Bus peers can spoof signals and
-      exhaust file descriptors). 0.21.3 is the patch for that line, so the desktop head takes a
-      direct reference to float the transitive one up to it.
-
-      This is not cosmetic: CI builds with warnings as errors, which turns the NU1903 audit
-      warning into a build failure. Drop the reference once Avalonia ships a patched version.
-    -->
-    <TmdsDBusProtocolVersion>0.21.3</TmdsDBusProtocolVersion>
   </PropertyGroup>
 
   <!-- Machine-specific paths (JDK/Android SDK locations) live in a git-ignored file so they

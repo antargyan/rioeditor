@@ -6,19 +6,81 @@ workflows themselves — if you rename a secret, the workflow will not find it.
 Three GitHub **environments**, one per store. Create them under
 **Settings → Environments** before adding secrets:
 
-| Environment | Used by | Secrets |
-| --- | --- | --- |
-| `google-play` | `publish-google-play.yml` | 5 |
-| `app-store` | `publish-app-store.yml` | 5 |
-| `apple-developer-id` | `publish-macos.yml` | 5 (3 shared with `app-store`) |
+| Environment | Used by | Secrets | Status |
+| --- | --- | --- | --- |
+| `microsoft-store` | `publish-microsoft-store.yml` | 4 | **working** — published a draft submission |
+| `google-play` | `publish-google-play.yml` | 5 | not set up |
+| `app-store` | `publish-app-store.yml` | 5 | not set up |
+| `apple-developer-id` | `publish-macos.yml` | 5 (3 shared with `app-store`) | not set up |
 
 Environments rather than repository secrets, because these can publish to live listings: a fork's
 pull request must not be able to reach them, and required reviewers on an environment double as a
 manual approval gate before anything ships.
 
+Repository-level secrets *do* work — a job that declares an environment still inherits them, which
+is how the Microsoft Store credentials are set today — but they are readable by every workflow in
+the repository, including ones added later. Environment-scoped is the tighter default.
+
 > **Read this before starting the Apple sections.** Both Apple `.p12` exports normally need a Mac.
 > Apple issues certificates into Keychain Access, and exporting to `.p12` is a Keychain operation.
 > There is a Windows workaround below, but if you have Mac access, do the exports there.
+
+---
+
+## Windows → `microsoft-store`
+
+Already set up and proven. Kept here so the reference is complete, and because the credentials
+expire.
+
+**No code-signing secret at all** — the Store re-signs the package itself. That makes Windows the
+cheapest of the four to automate: no certificate to buy, renew, or keep out of the repository.
+
+**Prerequisites**
+
+- Partner Center account (US$19 individual / US$99 company; company verification takes days)
+- The product reserved, which fixes the identity values below
+- The **first** submission completed by hand: screenshots, description, age rating, privacy policy
+  URL, and **Device family availability → Windows 10/11 Desktop** ticked
+
+### 1. Associate an Azure AD application
+
+1. Partner Center → **Account settings → User management → Azure AD applications**
+2. Associate an existing Entra application, or create one there
+3. Give it the **Manager** role — a lesser role authenticates but cannot submit
+
+### 2. Collect the four values
+
+- **Client ID** — the application's ID, on that same page
+- **Tenant ID** — the Entra directory ID
+- **Client secret** — create one on the application
+- **Seller ID** — Partner Center → **Account settings → Account details**
+
+> **This is the step that fails, and it fails opaquely.** In Entra, a client secret shows both a
+> **Secret ID** and a **Value**, both GUID-shaped and side by side. You need the **Value**, and it
+> is displayed only at creation. Copy the wrong one and `msstore reconfigure` reports
+> `Really failed to auth.` with no further detail — the same message you get from an application
+> that was never associated with Partner Center, or a tenant from the wrong directory. If the
+> Value is no longer visible, create a fresh secret.
+
+### 3. Add the secrets
+
+| Secret | Value |
+| --- | --- |
+| `PARTNER_CENTER_TENANT_ID` | Entra directory (tenant) ID |
+| `PARTNER_CENTER_SELLER_ID` | Partner Center → Account details |
+| `PARTNER_CENTER_CLIENT_ID` | the Azure AD application's ID |
+| `PARTNER_CENTER_CLIENT_SECRET` | the secret's **Value** |
+
+Nothing else is secret. The package identity and Store ID are in the workflow as plain `env:`
+values — the identity is embedded in every published package and the Store ID is in the product's
+public URL.
+
+### 4. Note the expiry
+
+Entra caps client secrets at 24 months. When one lapses this pipeline fails exactly as a wrong
+secret does, with nothing else changed to explain it. `msstore reconfigure` also accepts a
+certificate (`--certificateThumbprint` / `--certificateFilePath`), which is worth preferring for a
+pipeline that may go untouched for a year.
 
 ---
 
@@ -167,6 +229,7 @@ reissued.
 
 ## Suggested order
 
+0. **Microsoft Store** — done
 1. **Android keystore** (steps 1–2) — needs no account, can be done immediately
 2. **Apple Developer Program** — one enrolment unlocks both iOS and macOS
 3. **App Store Connect API key** — shared by iOS and macOS notarization
@@ -179,13 +242,15 @@ Every one has a safe mode; use it before trusting a tag.
 
 | Workflow | Safe first run |
 | --- | --- |
+| `publish-microsoft-store.yml` | manual with `draft: true` — uploads without committing the submission |
 | `publish-google-play.yml` | manual, `track: internal`, `status: draft` |
 | `publish-app-store.yml` | manual — TestFlight is not the App Store |
 | `publish-macos.yml` | manual — produces a **draft** GitHub Release |
 
-None of these three have ever run. They are written from each action's documented input contract,
-so expect the first run of each to need adjustment. For reference, the Microsoft Store workflow
-took two attempts *with working credentials*.
+The Microsoft Store workflow has run for real and works. The other three never have — they are
+written from each action's documented input contract, so expect the first run of each to need
+adjustment. For calibration: the Microsoft Store one took two attempts *with working credentials*,
+the first failing on the Secret ID / Value confusion described above.
 
 ## What is not needed
 

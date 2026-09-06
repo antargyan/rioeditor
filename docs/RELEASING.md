@@ -14,7 +14,7 @@ confusing ways months later.
 | Linux | GitHub Release (tar.gz / AppImage) | none | Buildable |
 | macOS | Notarized DMG, and/or Mac App Store | Apple Developer ID or Mac App Distribution | Needs Apple account |
 | iOS | App Store / TestFlight | Apple Distribution | Needs Apple account |
-| Android | Google Play, and an APK on GitHub Releases | Upload keystore + Play service account | Needs Play account |
+| Android | Google Play, and an APK on GitHub Releases | Upload keystore + Play service account | Needs Play account, **and the Avalonia 12 migration** for Android 16 |
 
 Bundle identifier across Apple and Android: `ai.rioeditor.editor`.
 
@@ -25,7 +25,9 @@ whole solution in one job — `RioEditor.slnx` contains heads that require the `
 `android` workloads — so the work is split by runner:
 
 - **ubuntu**: Core, App, Desktop (Windows/Linux head), Browser; publishes the WASM site as an artifact
-- **macos-14**: the macOS head and the iOS head (simulator build, which needs no signing)
+- **macos-26**: the macOS head and the iOS head (simulator build, which needs no signing). The
+  image matters: .NET for macOS 26.5 requires Xcode 26.6, which `macos-14` (15.4) and `macos-15`
+  (26.3) do not have
 - **ubuntu**: the Android head (the hosted image already has the SDK and a JDK)
 
 Note that macOS runner minutes bill at 10x on private repositories. Making the repository public
@@ -62,6 +64,99 @@ dotnet publish src/RioEditor.Android -c Release -p:AndroidPackageFormat=aab
 | `ANDROID_KEY_ALIAS` | `rioeditor` |
 | `ANDROID_KEY_PASSWORD` | key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | the service-account JSON, verbatim |
+
+**Blocked on the Avalonia 12 migration below.** Google Play requires 16 KB page alignment for
+64-bit native libraries on Android 16, and the `libSkiaSharp.so` we ship today is 4 KB aligned.
+Read that section before planning any Play submission — it is the long pole, not the keystore.
+
+## Avalonia 12 migration (required for Android 16)
+
+Not a version bump. A solution-wide migration that every head has to be re-verified after, forced
+by a Play Store requirement with no smaller workaround. **It does not block the Microsoft Store**,
+which has no equivalent rule; Windows can ship on Avalonia 11 today.
+
+### Why there is no cheaper option
+
+Android 16 requires 64-bit native libraries to use 16 KB memory pages. Checking the ELF program
+headers of the `arm64` `libSkiaSharp.so` in each package settles it:
+
+| `SkiaSharp.NativeAssets.Android` | `PT_LOAD` alignment | Verdict |
+| --- | --- | --- |
+| 2.88.9 (what we ship) | `0x1000` (4 KB) | rejected by Play on Android 16 |
+| 3.119.4 | `0x4000` (16 KB) | compliant |
+
+Three dead ends, checked so nobody re-checks them:
+
+- **Wait for a 2.88.x patch.** 2.88.9 is the last release on that line, and SkiaSharp's maintainer
+  states plainly on the open issue ([mono/SkiaSharp#3420](https://github.com/mono/SkiaSharp/issues/3420))
+  that the 2.x series is not really supported.
+- **Bump Avalonia within 11.x.** Avalonia 11.3.20, the current 11 tip, still pins SkiaSharp 2.88.9.
+- **Pin SkiaSharp 3.x under Avalonia 11.** Avalonia's Skia binding is compiled against 2.88; this
+  is an ABI mismatch that would trade a Play rejection for a runtime crash.
+
+SkiaSharp 3.119.4 arrives with Avalonia 12 and only with Avalonia 12.
+
+### Package availability
+
+| Package | Avalonia 12? |
+| --- | --- |
+| `Avalonia`, `.Android`, `.Browser`, `.Desktop`, `.iOS`, `.Themes.Fluent`, `.Fonts.Inter` | yes, 12.1.2 |
+| `Avalonia.ReactiveUI` | **no** — ends at 11.3.9, renamed to `ReactiveUI.Avalonia` (12.1.1) |
+| `Avalonia.Diagnostics` | **no** — ends at 11.3.20; Debug-only, so droppable |
+| `WebView.Avalonia` | **no** — see below |
+
+### The WebView dependency, and the way out
+
+`WebView.Avalonia` 11.0.0.1 depends on Avalonia 11.0.0 and has no 12.x build. It is also
+effectively abandoned: last code commit August 2023, 71 open issues. Nothing is coming. This is the
+same library whose macOS backend already forced `RioEditor.Desktop.MacOS` into existence (README
+section 5).
+
+The replacement is **`Avalonia.Controls.WebView`** — first-party (AvaloniaUI OÜ), MIT, and more
+downloaded than the package it replaces. Probing the 12.1.0 assembly shows every API the bridge
+relies on: `NavigateToString`, `HtmlContent`, `ExecuteScript`, `WebMessageReceived`,
+`PostWebMessage`, `NavigationStarting`, `NewWindowRequested` — plus
+`AddScriptToExecuteOnDocumentCreated`, which we do not have today and which could retire the
+pending-scripts queue in `WebViewEditorSurface` entirely.
+
+Its TFMs are `net10.0`, `net10.0-android36.0` and `net10.0-browser1.0` — **no iOS or macOS**. That
+costs nothing here: both Apple heads use native `WKWebView` through `Shared.WebKit` and are
+untouched by any of this.
+
+### Work breakdown
+
+| Item | Size | Confidence |
+| --- | --- | --- |
+| Version bumps across six csprojs and `Directory.Build.props` | S | high |
+| `Avalonia.ReactiveUI` → `ReactiveUI.Avalonia` (ReactiveUI 20.1.1 → 24.1.0, four majors) | M | **low** |
+| Rewrite `WebViewEditorSurface` (273 lines) onto `Avalonia.Controls.WebView` | M | high, APIs map ~1:1 |
+| Avalonia 12 breaking changes across the XAML and all five heads | M | **low** until it compiles |
+| Android TFM `net10.0-android` → `android36.0`, CI workload updates | S | medium |
+| Re-verification on five platforms | **L** | — |
+
+The ReactiveUI surface in play is 53 `ReactiveCommand` uses, 14 `RaiseAndSetIfChanged`, plus
+`ToProperty`, `ObservableAsPropertyHelper` and `ThrownExceptions`, concentrated in `MainViewModel`
+and `ToolbarViewModel`. Contained, but a four-major jump brings its own Splat and DI churn.
+
+The largest cost is not code. What makes this project trustworthy is that every head was driven on a
+real device and photographed; Avalonia 12 invalidates all of that at once.
+
+### Do it in two steps, not one
+
+`Avalonia.Controls.WebView` also publishes for the 11.3.x line, which lets the two risks be
+separated:
+
+1. **Replace the dead WebView library while staying on Avalonia 11.** Isolated to the desktop head,
+   everything else frozen. Removes an abandoned dependency on its own schedule, and independently
+   revisits the reason the macOS head exists.
+2. **Then move to Avalonia 12 and ReactiveUI 24.** With the WebView already migrated, anything that
+   breaks is unambiguously Avalonia or ReactiveUI.
+
+Done together, a failure has three candidate causes and no clean bisect.
+
+Avalonia 12.0.0 shipped 2026-04-07; the
+[v12 breaking changes](https://docs.avaloniaui.net/docs/avalonia12-breaking-changes) list is the
+starting point for step 2.
 
 ## iOS → App Store / TestFlight
 
@@ -234,7 +329,7 @@ minutes per build; worth enabling once the demo gets real traffic.
    identity is already reserved; the remaining work is listing content, not engineering.
 3. **GitHub Releases for macOS and Linux** — unsigned first, so people can try it.
 4. **Apple Developer Program** — unlocks notarised macOS *and* iOS together.
-5. **Google Play** — cheapest store, and the Android head is the best tested of the mobile two.
+5. **Google Play** — gated on the Avalonia 12 migration, so start that first if Android matters.
 
 ## Version numbering
 

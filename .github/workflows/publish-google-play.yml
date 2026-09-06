@@ -1,0 +1,94 @@
+name: Publish to Google Play
+
+# Manual only, deliberately. Google Play rejects 64-bit native libraries that are not 16 KB
+# page aligned on Android 16, and the libSkiaSharp.so we ship today is 4 KB aligned. That is
+# fixed by the Avalonia 12 migration, not here — see docs/RELEASING.md. Tag-triggering this
+# before then would fail on every release for a reason no one could act on.
+#
+# Add back once the migration lands:
+#   push:
+#     tags: ['v*']
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Play track to upload to'
+        type: choice
+        options: [internal, alpha, beta, production]
+        default: internal
+      status:
+        description: 'draft leaves the release unpublished on that track'
+        type: choice
+        options: [draft, completed]
+        default: draft
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE_NAME: ai.rioeditor.editor
+
+jobs:
+  publish:
+    name: Build and upload the AAB
+    runs-on: ubuntu-latest
+    environment: google-play
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: microsoft
+          java-version: '17'
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install the Android workload
+        run: dotnet workload install android
+
+      # The keystore is a binary file, so it travels as base64 in a secret and is written out
+      # here. Deleted at the end of the job whatever happens.
+      - name: Restore the upload keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      # RioBuild becomes android:versionCode. github.run_number drives it so every upload
+      # increments without a commit — Play refuses a versionCode it has already seen.
+      - name: Build the signed AAB
+        run: |
+          dotnet publish src/RioEditor.Android -c Release -f net10.0-android \
+            -p:AndroidPackageFormat=aab \
+            -p:RioBuild=${{ github.run_number }} \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$RUNNER_TEMP/upload.jks" \
+            -p:AndroidSigningStorePass='${{ secrets.ANDROID_KEYSTORE_PASSWORD }}' \
+            -p:AndroidSigningKeyAlias='${{ secrets.ANDROID_KEY_ALIAS }}' \
+            -p:AndroidSigningKeyPass='${{ secrets.ANDROID_KEY_PASSWORD }}' \
+            -o publish/android
+
+      - name: Find the AAB
+        id: aab
+        run: echo "path=$(find publish/android -name '*-Signed.aab' -o -name '*.aab' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the AAB
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-aab
+          path: publish/android/*.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFile: ${{ steps.aab.outputs.path }}
+          track: ${{ inputs.track }}
+          status: ${{ inputs.status }}
+
+      - name: Shred the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"

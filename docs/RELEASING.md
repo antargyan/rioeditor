@@ -85,6 +85,13 @@ dotnet publish src/RioEditor.Android -c Release -p:AndroidPackageFormat=aab
 | `ANDROID_KEY_PASSWORD` | key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | the service-account JSON, verbatim |
 
+**Workflow:** `.github/workflows/publish-google-play.yml` — builds a signed AAB and uploads it
+with [`r0adkll/upload-google-play`](https://github.com/r0adkll/upload-google-play). Inputs choose
+the track and whether the release is left as a draft. Secrets go in a `google-play` environment.
+
+**Manual trigger only, on purpose.** The tag trigger is commented out because Play would reject
+every build for the reason below; uncomment it once the migration lands.
+
 **Blocked on the Avalonia 12 migration below.** Google Play requires 16 KB page alignment for
 64-bit native libraries on Android 16, and the `libSkiaSharp.so` we ship today is 4 KB aligned.
 Read that section before planning any Play submission — it is the long pole, not the keystore.
@@ -247,6 +254,10 @@ release from TestFlight.
 4. A **distribution certificate** and provisioning profile. Simplest is to let `fastlane match`
    manage them in a private repository; otherwise export the `.p12` by hand.
 
+**Workflow:** `.github/workflows/publish-app-store.yml` — a `v*` tag archives, signs and uploads
+to **TestFlight**, never straight to the App Store; releasing to customers stays a deliberate act
+in App Store Connect. Secrets go in an `app-store` environment.
+
 **Repository secrets**
 
 | Secret | Contents |
@@ -275,6 +286,20 @@ xcrun stapler staple RioEditor.dmg
 Without this, macOS Gatekeeper refuses to open the app at all on another machine — this is not a
 warning that can be clicked through easily, so it is the difference between a usable download and
 an unusable one.
+
+**Workflow:** `.github/workflows/publish-macos.yml` — a `v*` tag builds, signs with the hardened
+runtime, packages a DMG, notarizes it with `notarytool --wait`, staples, and attaches it to a
+GitHub Release. A manual run produces a *draft* release instead. Secrets go in an
+`apple-developer-id` environment.
+
+| Secret | Contents |
+| --- | --- |
+| `MACOS_DEVELOPER_ID_CERT_P12` | base64 of the Developer ID Application `.p12` |
+| `MACOS_DEVELOPER_ID_CERT_PASSWORD` | its password |
+| `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_PRIVATE_KEY` | reused from iOS; `notarytool` authenticates with the same App Store Connect key |
+
+Note the certificate is a **different one from iOS**: Developer ID Application signs a direct
+download, Apple Distribution signs an App Store build.
 
 **Needed from you:** the same Apple Developer Program membership, plus a **Developer ID
 Application** certificate exported as `.p12`. The Mac App Store route additionally needs a **Mac

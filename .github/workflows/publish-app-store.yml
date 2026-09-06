@@ -1,0 +1,90 @@
+name: Publish to TestFlight
+
+# Uploads to TestFlight, never straight to the App Store. Releasing to customers stays a
+# deliberate act in App Store Connect — this job's job is to get a build in front of testers.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUNDLE_ID: ai.rioeditor.editor
+
+jobs:
+  publish:
+    name: Archive and upload to TestFlight
+    runs-on: macos-26
+    environment: app-store
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Check the tag matches RioVersion
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          rio=$(sed -n 's:.*<RioVersion>\(.*\)</RioVersion>.*:\1:p' Directory.Build.props | head -1 | tr -d ' ')
+          if [ "$tag" != "$rio" ]; then
+            echo "Tag '$tag' does not match RioVersion '$rio' in Directory.Build.props." >&2
+            exit 1
+          fi
+          echo "tag $tag matches RioVersion $rio"
+
+      - name: Install the iOS workload
+        run: sudo dotnet workload install ios
+
+      # Into a throwaway keychain rather than the login one: the runner is discarded, but a
+      # named keychain keeps the certificate from colliding with anything else on it.
+      - uses: Apple-Actions/import-codesign-certs@v7.0.0
+        with:
+          keychain: rioeditor-ios
+          create-keychain: true
+          p12-file-base64: ${{ secrets.APPLE_DIST_CERT_P12 }}
+          p12-password: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+
+      - uses: Apple-Actions/download-provisioning-profiles@v6.1.0
+        with:
+          bundle-id: ${{ env.BUNDLE_ID }}
+          profile-type: IOS_APP_STORE
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
+          api-key-id: ${{ secrets.ASC_KEY_ID }}
+          api-private-key: ${{ secrets.ASC_PRIVATE_KEY }}
+
+      # RioBuild becomes CFBundleVersion. App Store Connect refuses a build number it has
+      # already seen, so github.run_number drives it rather than the checked-in value.
+      - name: Archive the iOS app
+        run: |
+          dotnet publish src/RioEditor.iOS -c Release -f net10.0-ios -r ios-arm64 \
+            -p:RioBuild=${{ github.run_number }} \
+            -p:ArchiveOnBuild=true \
+            -p:CodesignProvision="RioEditor App Store" \
+            -p:CodesignKey="Apple Distribution" \
+            -o publish/ios
+
+      - name: Find the IPA
+        id: ipa
+        run: echo "path=$(find publish/ios -name '*.ipa' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the IPA
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-ipa
+          path: publish/ios/*.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: Apple-Actions/upload-testflight-build@v5.3.0
+        with:
+          app-path: ${{ steps.ipa.outputs.path }}
+          app-type: ios
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
+          api-key-id: ${{ secrets.ASC_KEY_ID }}
+          api-private-key: ${{ secrets.ASC_PRIVATE_KEY }}

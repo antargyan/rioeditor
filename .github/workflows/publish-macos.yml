@@ -1,0 +1,112 @@
+name: Publish the macOS DMG
+
+# Produces a signed, notarized, stapled DMG and attaches it to a GitHub Release. Notarization
+# is not optional cosmetics: without it Gatekeeper refuses to open the app on another machine,
+# and that is not a warning a user can reasonably click through.
+#
+# The Mac App Store is a separate route needing a Mac App Distribution certificate and its own
+# app record; not covered here.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the release and attach the DMG
+
+jobs:
+  publish:
+    name: Build, notarize and release
+    runs-on: macos-26
+    environment: apple-developer-id
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Check the tag matches RioVersion
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          rio=$(sed -n 's:.*<RioVersion>\(.*\)</RioVersion>.*:\1:p' Directory.Build.props | head -1 | tr -d ' ')
+          if [ "$tag" != "$rio" ]; then
+            echo "Tag '$tag' does not match RioVersion '$rio' in Directory.Build.props." >&2
+            exit 1
+          fi
+          echo "tag $tag matches RioVersion $rio"
+
+      - name: Install the macOS workload
+        run: sudo dotnet workload install macos
+
+      # Developer ID Application, not Apple Distribution: a direct download is signed with a
+      # different certificate from an App Store build.
+      - uses: Apple-Actions/import-codesign-certs@v7.0.0
+        with:
+          keychain: rioeditor-macos
+          create-keychain: true
+          p12-file-base64: ${{ secrets.MACOS_DEVELOPER_ID_CERT_P12 }}
+          p12-password: ${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}
+
+      - name: Build the .app
+        run: |
+          dotnet publish src/RioEditor.Desktop.MacOS -c Release -r osx-arm64 \
+            -p:RioBuild=${{ github.run_number }} \
+            -o publish/macos
+
+      # --options runtime enables the hardened runtime, which notarization requires. --deep is
+      # deprecated for signing but still the pragmatic way to cover the bundled .NET dylibs.
+      - name: Sign
+        run: |
+          APP=$(find publish/macos -maxdepth 2 -name '*.app' | head -1)
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          codesign --force --deep --timestamp --options runtime \
+            --sign "Developer ID Application" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Build the DMG
+        run: |
+          mkdir -p dmg-staging
+          cp -R "$APP" dmg-staging/
+          ln -s /Applications dmg-staging/Applications
+          hdiutil create -volname RioEditor -srcfolder dmg-staging -ov -format UDZO RioEditor.dmg
+          codesign --force --timestamp --sign "Developer ID Application" RioEditor.dmg
+
+      # notarytool blocks until Apple has finished, so a green step here means the DMG really
+      # is notarized rather than merely submitted.
+      - name: Notarize and staple
+        run: |
+          printf '%s' "${{ secrets.ASC_PRIVATE_KEY }}" > "$RUNNER_TEMP/asc.p8"
+          xcrun notarytool submit RioEditor.dmg \
+            --key "$RUNNER_TEMP/asc.p8" \
+            --key-id "${{ secrets.ASC_KEY_ID }}" \
+            --issuer "${{ secrets.ASC_ISSUER_ID }}" \
+            --wait
+          xcrun stapler staple RioEditor.dmg
+          xcrun stapler validate RioEditor.dmg
+          rm -f "$RUNNER_TEMP/asc.p8"
+
+      - name: Keep the DMG
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-dmg
+          path: RioEditor.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      # Draft on a manual run so the pipeline can be exercised without announcing anything.
+      - name: Attach to a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            gh release create "$GITHUB_REF_NAME" RioEditor.dmg \
+              --title "$GITHUB_REF_NAME" --generate-notes --clobber || \
+            gh release upload "$GITHUB_REF_NAME" RioEditor.dmg --clobber
+          else
+            gh release create "dmg-run-${{ github.run_number }}" RioEditor.dmg \
+              --title "Manual build ${{ github.run_number }}" --draft --notes 'Manual run; not a release.'
+          fi

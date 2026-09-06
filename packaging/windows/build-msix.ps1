@@ -32,6 +32,9 @@ param(
     [string]   $DisplayName          = 'RioEditor : MarkDown Editor',
     # Defaults to major.minor.RioBuild.0 from Directory.Build.props; see Resolve-Version.
     [string]   $Version,
+    # Overrides RioBuild when composing the version, without editing Directory.Build.props.
+    # CI passes the run number here so every pipeline upload increments on its own.
+    [int]      $BuildNumber,
     [string[]] $Architectures        = @('x64', 'arm64'),
     [string]   $Configuration        = 'Release',
     [string]   $OutputDirectory,
@@ -46,6 +49,10 @@ $repoRoot      = (Resolve-Path (Join-Path $packagingRoot '..\..')).Path
 $project       = Join-Path $repoRoot 'src\RioEditor.Desktop\RioEditor.Desktop.csproj'
 $imagesDir     = Join-Path $packagingRoot 'Images'
 $template      = Join-Path $packagingRoot 'AppxManifest.template.xml'
+
+# Captured here, at script scope, on purpose: inside a function $PSBoundParameters describes
+# that function's own parameters, so testing it there silently reports 'not supplied'.
+$hasBuildNumber = $PSBoundParameters.ContainsKey('BuildNumber')
 
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repoRoot 'publish\store' }
 $stagingRoot = Join-Path $OutputDirectory '_staging'
@@ -76,12 +83,15 @@ function Resolve-Version {
     $parts = $version.InnerText.Trim().Split('.')
     if ($parts.Count -lt 2) { throw "RioVersion '$($version.InnerText)' is not major.minor.patch." }
 
-    return "{0}.{1}.{2}.0" -f $parts[0], $parts[1], $build.InnerText.Trim()
+    $buildField = if ($hasBuildNumber) { $BuildNumber } else { $build.InnerText.Trim() }
+    return "{0}.{1}.{2}.0" -f $parts[0], $parts[1], $buildField
 }
 
 if (-not $Version) {
     $Version = Resolve-Version
-    Write-Host "version  : $Version (RioVersion + RioBuild from Directory.Build.props)"
+    $source = if ($hasBuildNumber) { "RioVersion from Directory.Build.props + BuildNumber $BuildNumber" }
+              else { 'RioVersion + RioBuild from Directory.Build.props' }
+    Write-Host "version  : $Version ($source)"
 }
 
 # The Store owns the revision field and rejects a package that sets it.

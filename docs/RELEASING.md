@@ -10,7 +10,7 @@ confusing ways months later.
 | Target | Distribution | Signing needed | Ready? |
 | --- | --- | --- | --- |
 | WebAssembly | GitHub Pages | none | **Live** — `pages.yml` deploys every push to `main` |
-| Windows | Microsoft Store (MSIX) | none — the Store re-signs | **Package builds and validates**; awaiting listing content |
+| Windows | Microsoft Store (MSIX) | none — the Store re-signs | **Publish workflow wired**; needs Partner Center credentials and listing content |
 | Linux | GitHub Release (tar.gz / AppImage) | none | Buildable |
 | macOS | Notarized DMG, and/or Mac App Store | Apple Developer ID or Mac App Distribution | Needs Apple account |
 | iOS | App Store / TestFlight | Apple Distribution | Needs Apple account |
@@ -346,6 +346,58 @@ association-specific code — `Program.Main` hands its arguments to `StartupDocu
 
 Only those two extensions, deliberately. Claiming `.txt`, or the long tail of `.mdown`/`.mkd`,
 draws Store review questions and annoys users whose defaults get hijacked.
+
+### Automated publishing
+
+`.github/workflows/publish-microsoft-store.yml` builds the bundle and pushes it to Partner Center
+through Microsoft's own [MSStore Developer CLI](https://github.com/microsoft/msstore-cli).
+
+| Trigger | Behaviour |
+| --- | --- |
+| push a `v*` tag | publishes for real |
+| run by hand | **draft by default** — uploads the package and leaves the submission uncommitted |
+
+The manual path exists so the whole pipeline can be exercised without anything reaching customers.
+Turn the `draft` input off to publish from a manual run.
+
+**No signing secret is involved**, which is what makes Windows the cheapest of the three stores to
+automate: the Store still signs the package itself.
+
+**One-time setup in Partner Center**
+
+1. **Account settings → User management → Azure AD applications** — associate an Azure AD (Entra)
+   application, or create one, and give it the **Manager** role.
+2. From that application take the **Client ID** and the directory's **Tenant ID**, then create a
+   **client secret**.
+3. **Account settings → Account details** — copy the **Seller ID**.
+
+**Repository secrets**
+
+| Secret | Contents |
+| --- | --- |
+| `PARTNER_CENTER_TENANT_ID` | Entra directory (tenant) ID |
+| `PARTNER_CENTER_SELLER_ID` | Partner Center → Account details |
+| `PARTNER_CENTER_CLIENT_ID` | the Azure AD application's ID |
+| `PARTNER_CENTER_CLIENT_SECRET` | secret generated on that application |
+
+Put them in a GitHub **environment** named `microsoft-store` rather than on the repository, which is
+what the workflow expects. These credentials can publish to a live listing, so a fork's pull request
+must not be able to reach them; adding required reviewers to that environment also gives a manual
+approval gate before anything ships.
+
+Nothing else is secret. The package identity is embedded in every published package and the Store ID
+is in the product's public URL, so both live in the workflow as plain `env:` values.
+
+⚠️ **Client secrets expire** — Entra caps them at 24 months, and the pipeline will start failing the
+day it lapses, with nothing else changed. `msstore reconfigure` also accepts a certificate
+(`--certificateThumbprint` / `--certificateFilePath`), which is worth preferring for a pipeline that
+may go untouched for a year.
+
+**Versioning in the pipeline.** The workflow passes `-BuildNumber ${{ github.run_number }}`, so
+every run produces a higher package version with nothing committed and nothing to remember. A local
+build still uses `RioBuild` from `Directory.Build.props`. On a tag push the workflow also checks the
+tag against `RioVersion` and fails if they disagree, because a package whose version does not match
+its release notes is worse than a failed build.
 
 ### Before submitting
 

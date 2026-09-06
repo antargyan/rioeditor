@@ -1,0 +1,110 @@
+name: Publish to the Microsoft Store
+
+# Two ways in:
+#   - pushing a v* tag publishes for real
+#   - running it by hand defaults to a DRAFT submission, so the pipeline can be exercised
+#     end to end without anything reaching customers
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Leave the submission in draft (nothing goes live)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  # None of these are secret — the identity is embedded in every published package and the
+  # Store ID is in the product's public URL. Only the four Partner Center credentials are.
+  STORE_ID: 9MTX2KV1CGFH
+  IDENTITY_NAME: CDUCK.RioEditorMarkDownEditor
+  PUBLISHER: CN=48B5EDEA-A9A5-4B78-A27C-36E0547C8A22
+  PUBLISHER_DISPLAY_NAME: ANTARGYAN CLOUDWORKS LLP
+  # Must be a name reserved in Partner Center, or the upload is rejected.
+  DISPLAY_NAME: 'RioEditor : MarkDown Editor'
+
+jobs:
+  publish:
+    name: Build and publish the MSIX
+    runs-on: windows-latest
+
+    # Gates the credentials behind an environment rather than the repository, so they cannot be
+    # reached from a fork's pull request. Add required reviewers there for a manual approval step.
+    environment: microsoft-store
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # A tag that disagrees with the version actually being packaged is a trap worth failing on:
+      # the Store would accept the package and the release notes would describe something else.
+      - name: Check the tag matches RioVersion
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}' -replace '^v', ''
+          $rio = ([xml](Get-Content Directory.Build.props)).SelectSingleNode('/Project/PropertyGroup/RioVersion').InnerText.Trim()
+          if ($tag -ne $rio) {
+            throw "Tag '$tag' does not match RioVersion '$rio' in Directory.Build.props. Bump RioVersion, or retag."
+          }
+          Write-Host "tag $tag matches RioVersion $rio"
+
+      # github.run_number is the upload counter: monotonic, never committed, and impossible to
+      # forget. It lands in the third field of the package version (the Store reserves the
+      # fourth), exactly as RioBuild does for a local build.
+      - name: Build the MSIX bundle
+        shell: pwsh
+        run: |
+          ./packaging/windows/build-msix.ps1 `
+            -IdentityName '${{ env.IDENTITY_NAME }}' `
+            -Publisher '${{ env.PUBLISHER }}' `
+            -PublisherDisplayName '${{ env.PUBLISHER_DISPLAY_NAME }}' `
+            -DisplayName '${{ env.DISPLAY_NAME }}' `
+            -BuildNumber ${{ github.run_number }} `
+            -SkipTestSigning
+
+      # Kept whatever happens next, so a failed publish still leaves something to inspect or
+      # upload by hand.
+      - name: Keep the bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-bundle
+          path: publish/store/*.msixbundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: microsoft/microsoft-store-apppublisher@v1.4
+
+      - name: Sign in to Partner Center
+        shell: pwsh
+        run: >
+          msstore reconfigure
+          --tenantId ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+          --sellerId ${{ secrets.PARTNER_CENTER_SELLER_ID }}
+          --clientId ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+          --clientSecret ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+
+      # A manual run defaults to --noCommit, which uploads the package and leaves the submission
+      # in draft for a human to review in Partner Center. A tag push commits it.
+      - name: Publish
+        shell: pwsh
+        run: |
+          $bundle = (Get-ChildItem publish/store/*.msixbundle | Select-Object -First 1).FullName
+          Write-Host "publishing $bundle"
+
+          $draft = '${{ inputs.draft }}' -eq 'true'
+          if ($draft) {
+            Write-Host 'draft mode: uploading without committing the submission'
+            msstore publish $bundle --appId ${{ env.STORE_ID }} --noCommit
+          } else {
+            msstore publish $bundle --appId ${{ env.STORE_ID }}
+          }
+          if ($LASTEXITCODE -ne 0) { throw "msstore publish failed with exit code $LASTEXITCODE." }

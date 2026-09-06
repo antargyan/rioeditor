@@ -1,6 +1,7 @@
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
+using Avalonia.Threading;
 using ReactiveUI;
 using RioEditor.Core.Editor;
 
@@ -146,8 +147,8 @@ public sealed class ToolbarViewModel : ViewModelBase
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        // The engine posts from the WebView thread; ReactiveUI marshals to the UI scheduler.
-        RxApp.MainThreadScheduler.Schedule(() =>
+        // The engine posts from the WebView thread; the dispatcher marshals to the UI thread.
+        Dispatcher.UIThread.Post(() =>
         {
             IsBold = e.Bold;
             IsItalic = e.Italic;

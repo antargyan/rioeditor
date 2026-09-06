@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.iOS;
 using Avalonia.Media;
-using Avalonia.ReactiveUI;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using RioEditor.App.Composition;
@@ -24,8 +23,7 @@ public partial class AppDelegate : AvaloniaAppDelegate<App.App>
         App.App.Services = BuildServices();
 
         return base.CustomizeAppBuilder(builder)
-            .WithInterFont()
-            .UseReactiveUI();
+            .WithInterFont();
     }
 
     private static IServiceProvider BuildServices() =>

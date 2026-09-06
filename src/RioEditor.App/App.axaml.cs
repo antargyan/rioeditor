@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data.Core.Plugins;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,9 +20,6 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // Avalonia's own validation plugin duplicates every ReactiveUI validation message.
-        BindingPlugins.DataValidators.RemoveAt(0);
-
         var mainViewModel = Services.GetRequiredService<MainViewModel>();
 
         switch (ApplicationLifetime)

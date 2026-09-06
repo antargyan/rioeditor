@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
+using Avalonia.Threading;
 using ReactiveUI;
 using RioEditor.App.Services;
 using RioEditor.Core.Editor;
@@ -252,9 +253,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        // Captured rather than resolved through RxApp: StartAutosave runs on the UI thread, so
+        // this is Avalonia's own SynchronizationContext, and the timer's ticks come back to it.
+        // The Where clause below reads UI-bound state, so it must not run on the timer thread.
+        var uiContext = SynchronizationContext.Current;
+
         _disposables.Add(Observable
             .Interval(TimeSpan.FromSeconds(intervalSeconds))
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(uiContext!)
             // Never overlap autosave passes, and never fight an explicit save.
             .Where(_ => Document.IsDirty && !_isSaving && IsEditorReady)
             .SelectMany(_ => Observable.FromAsync(AutosaveAsync))
@@ -265,8 +271,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     // ------------------------------------------------------------------ bridge events
 
+    // Marshalled through the dispatcher rather than RxApp.MainThreadScheduler: this app no
+    // longer takes the ReactiveUI-Avalonia integration package, which was the thing that pointed
+    // that scheduler at the UI thread. Dispatcher.UIThread is what it was doing anyway.
     private void OnEditorReady(object? sender, EventArgs e) =>
-        RxApp.MainThreadScheduler.Schedule(() => _ = RestoreSessionSafeAsync());
+        Dispatcher.UIThread.Post(() => _ = RestoreSessionSafeAsync());
 
     /// <summary>
     /// Session restore runs detached from any command pipeline, so a failure here would otherwise
@@ -285,10 +294,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     private void OnStatsChanged(object? sender, DocumentStatsEventArgs e) =>
-        RxApp.MainThreadScheduler.Schedule(() => WordCount = e.WordCount);
+        Dispatcher.UIThread.Post(() => WordCount = e.WordCount);
 
     private void OnDocumentChanged(object? sender, DocumentChangedEventArgs e) =>
-        RxApp.MainThreadScheduler.Schedule(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             Document.Html = e.Html;
             Document.Markdown = e.Markdown;

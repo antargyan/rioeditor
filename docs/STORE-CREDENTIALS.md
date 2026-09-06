@@ -140,10 +140,8 @@ The API can update an app but cannot create one, so the very first AAB has to go
 Play Console UI. Run the workflow once to produce a bundle, download the `android-aab` artifact,
 and upload that. After that the workflow can take over.
 
-> **The Play workflow is manual-only right now.** Google Play rejects 64-bit native libraries
-> that are not 16 KB page aligned on Android 16, and the `libSkiaSharp.so` we ship is 4 KB
-> aligned. Fixed by the Avalonia 12 migration — see [RELEASING.md](RELEASING.md). Uploads work
-> today and are fine for internal testing; they will not pass review until then.
+Tag pushes publish; the 16 KB page-alignment blocker is gone. Avalonia 12 brought SkiaSharp
+3.119.4 and every shipped 64-bit library is now 16 KB aligned.
 
 ### Two things that cost a run here
 

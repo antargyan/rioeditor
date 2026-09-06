@@ -5,7 +5,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue.svg" alt="MIT licence"></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
-  <img src="https://img.shields.io/badge/Avalonia-11.3-8B44AC" alt="Avalonia 11.3">
+  <img src="https://img.shields.io/badge/Avalonia-12.1-8B44AC" alt="Avalonia 12.1">
   <img src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20iOS%20%C2%B7%20Android%20%C2%B7%20Web-lightgrey" alt="Platforms">
   <a href="https://github.com/sponsors/antargyan"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-ff69b4" alt="Sponsor"></a>
 </p>
@@ -16,7 +16,7 @@
 
 # RioEditor
 
-A Typora-style WYSIWYG Markdown editor built with **AvaloniaUI 11.3** on **.NET 10**, running on
+A Typora-style WYSIWYG Markdown editor built with **AvaloniaUI 12.1** on **.NET 10**, running on
 Windows, macOS, Linux and WebAssembly.
 
 There is no split view and no preview pane. The rendered HTML *is* the document you type into:
@@ -511,14 +511,19 @@ Pinned centrally in `Directory.Build.props`:
 
 | Package | Version |
 | --- | --- |
-| Avalonia (+ Themes.Fluent, Fonts.Inter, ReactiveUI, Desktop, Browser) | 11.3.9 |
+| Avalonia (+ Themes.Fluent, Fonts.Inter, Desktop, Browser, Android, iOS) | 12.1.2 |
+| Avalonia.Controls.WebView | 12.1.0 |
+| ReactiveUI | 20.1.1 |
 | WebView.Avalonia (+ .Desktop) | 11.0.0.1 |
 | Markdig | 1.3.2 |
 | HtmlAgilityPack | 1.13.0 |
 | Microsoft.Extensions.DependencyInjection | 10.0.0 |
 
-`Avalonia.ReactiveUI` is the version ceiling: it is published up to 11.3.9, so the whole Avalonia
-stack is pinned there for consistency.
+`ReactiveUI` is referenced directly rather than through an Avalonia integration package.
+`Avalonia.ReactiveUI` stopped at 11.3.9 and its successor `ReactiveUI.Avalonia` pulls ReactiveUI 24,
+which has replaced Rx with its own Signals model — no `Observable`, no `Unit`, no `System.Reactive`.
+Nothing here used the integration beyond `UseReactiveUI()` setting `RxApp.MainThreadScheduler`, and
+that is now `Dispatcher.UIThread` directly, so ReactiveUI 20 stays.
 
 ---
 

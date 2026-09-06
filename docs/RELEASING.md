@@ -3,20 +3,19 @@
 The delivery plan for the six targets, what each one needs, and what is still missing.
 Step-by-step for obtaining and setting the credentials is in
 [STORE-CREDENTIALS.md](STORE-CREDENTIALS.md).
-Nothing here is wired up yet beyond CI — the release workflows are deliberately not committed
-until the accounts and secrets below exist, because a half-configured signing pipeline fails in
-confusing ways months later.
+Publish workflows exist for all four stores. Windows and Android have run for real; iOS and macOS
+are written but unexercised, because they need an Apple Developer Program account.
 
 ## Status
 
 | Target | Distribution | Signing needed | Ready? |
 | --- | --- | --- | --- |
 | WebAssembly | GitHub Pages | none | **Live** — `pages.yml` deploys every push to `main` |
-| Windows | Microsoft Store (MSIX) | none — the Store re-signs | **Publish workflow wired**; needs Partner Center credentials and listing content |
+| Windows | Microsoft Store (MSIX) | none — the Store re-signs | **Publishing works** — draft submission uploaded; needs listing content |
 | Linux | GitHub Release (tar.gz / AppImage) | none | Buildable |
-| macOS | Notarized DMG, and/or Mac App Store | Apple Developer ID or Mac App Distribution | Needs Apple account |
-| iOS | App Store / TestFlight | Apple Distribution | Needs Apple account |
-| Android | Google Play, and an APK on GitHub Releases | Upload keystore + Play service account | Needs Play account, **and the Avalonia 12 migration** for Android 16 |
+| macOS | Notarized DMG, and/or Mac App Store | Apple Developer ID or Mac App Distribution | Workflow written, unexercised — needs Apple account |
+| iOS | App Store / TestFlight | Apple Distribution | Workflow written, unexercised — needs Apple account |
+| Android | Google Play, and an APK on GitHub Releases | Upload keystore + Play service account | **Publishing works** — uploaded to the internal track |
 
 Bundle identifier across Apple and Android: `ai.rioeditor.editor`.
 
@@ -91,18 +90,44 @@ dotnet publish src/RioEditor.Android -c Release -p:AndroidPackageFormat=aab
 with [`r0adkll/upload-google-play`](https://github.com/r0adkll/upload-google-play). Inputs choose
 the track and whether the release is left as a draft. Secrets go in a `google-play` environment.
 
-**Manual trigger only, on purpose.** The tag trigger is commented out because Play would reject
-every build for the reason below; uncomment it once the migration lands.
+**No longer blocked.** Android 16's 16 KB page-alignment requirement was the long pole; the
+Avalonia 12 migration below is done and every shipped 64-bit library now complies.
 
-**Blocked on the Avalonia 12 migration below.** Google Play requires 16 KB page alignment for
-64-bit native libraries on Android 16, and the `libSkiaSharp.so` we ship today is 4 KB aligned.
-Read that section before planning any Play submission — it is the long pole, not the keystore.
+## Avalonia 12 migration — done
 
-## Avalonia 12 migration (required for Android 16)
+**Completed.** Avalonia 11.3.9 → 12.1.2, which brings SkiaSharp 3.119.4 and satisfies Android 16.
+Verified by reading the ELF program headers of every 64-bit library in the built AAB: 224 of 224 at
+`0x4000` (16 KB) alignment, none at 4 KB.
 
-Not a version bump. A solution-wide migration that every head has to be re-verified after, forced
-by a Play Store requirement with no smaller workaround. **It does not block the Microsoft Store**,
-which has no equivalent rule; Windows can ship on Avalonia 11 today.
+What it actually cost, against the estimate below:
+
+| Item | Estimated | Actual |
+| --- | --- | --- |
+| Version bumps | S | S |
+| ReactiveUI | M, low confidence | **S** — sidestepped, see below |
+| WebView rewrite | S (spiked) | S — package bump only |
+| Avalonia 12 breaking changes | M, low confidence | **S** — three call sites |
+| Android TFM / CI | S | none needed |
+
+Three breaks in total, none deep:
+
+1. **`Avalonia.ReactiveUI` is gone**, and its successor `ReactiveUI.Avalonia` pulls ReactiveUI 24,
+   which has replaced Rx wholesale with its own Signals model — no `Observable`, no `Unit`, no
+   `System.Reactive`. That *would* have been a rewrite. It was avoidable: the only thing the
+   integration package provided was `UseReactiveUI()` pointing `RxApp.MainThreadScheduler` at the
+   UI thread, and nothing here used `IViewFor`, `WhenActivated` or `ReactiveUserControl`. So
+   `ReactiveUI` 20.1.1 is now referenced directly and the five scheduler sites marshal through
+   `Dispatcher.UIThread`, which is what the scheduler was doing anyway.
+2. **`BindingPlugins` is internal in Avalonia 12.** The one call site removed Avalonia's
+   DataAnnotations validator to stop it duplicating ReactiveUI validation messages — and this app
+   has no ReactiveUI validation. Vestigial template code, deleted.
+3. **`AvaloniaMainActivity<TApp>` is non-generic now.** The app type and `AppBuilder` customisation
+   move to an `[Application]` class deriving `AvaloniaAndroidApplication<TApp>`; see
+   `src/RioEditor.Android/RioApplication.cs`. Arguably the more correct shape, since the Avalonia
+   application outlives any single Activity.
+
+A bonus: Avalonia 12 pulls `Tmds.DBus.Protocol` 0.94.1, which is above the advisory's patched
+0.92.0, so the security pin added earlier is gone.
 
 ### Why there is no cheaper option
 

@@ -532,6 +532,11 @@ that is now `Dispatcher.UIThread` directly, so ReactiveUI 20 stays.
 Packaging, signing and store-submission requirements for every platform are in
 [docs/RELEASING.md](docs/RELEASING.md).
 
+## Privacy
+
+RioEditor collects nothing. The policy is in [PRIVACY.md](PRIVACY.md) and is published at
+<https://antargyan.github.io/rioeditor/privacy.html>.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Antargyan.

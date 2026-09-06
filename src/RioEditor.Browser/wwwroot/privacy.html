@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<link rel="icon" href="favicon.ico" sizes="any">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — RioEditor</title>
+<meta name="generator" content="RioEditor">
+<style>
+/* ============================================================================
+   RioEditor — WYSIWYG surface theme
+   Design tokens are defined once on :root (light) and overridden for dark.
+   Every colour in the sheet goes through a token so theme switching is a single
+   attribute flip on <html data-theme>, with no reflow and no reload.
+   ========================================================================== */
+
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #f7f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --fg-faint: #8c959f;
+  --accent: #0969da;
+  --accent-soft: rgba(9, 105, 218, 0.12);
+  --border: #d8dee4;
+  --border-strong: #b8c0c8;
+  --code-bg: #f4f5f7;
+  --code-fg: #1f2328;
+  --code-border: #e3e6ea;
+  --quote-bar: #d0d7de;
+  --mark-bg: #fff3c4;
+  --selection: rgba(9, 105, 218, 0.20);
+  --table-stripe: #fafbfc;
+  --danger: #cf222e;
+
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue",
+               "Noto Sans", Ubuntu, Cantarell, sans-serif;
+  --font-mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
+               "Liberation Mono", monospace;
+
+  --measure: 46rem;      /* comfortable reading column */
+  --leading: 1.7;
+  --size-body: 16.5px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-elevated: #161b22;
+  --fg: #e6edf3;
+  --fg-muted: #9198a1;
+  --fg-faint: #6e7681;
+  --accent: #4493f8;
+  --accent-soft: rgba(68, 147, 248, 0.16);
+  --border: #30363d;
+  --border-strong: #444c56;
+  --code-bg: #161b22;
+  --code-fg: #e6edf3;
+  --code-border: #30363d;
+  --quote-bar: #3d444d;
+  --mark-bg: #4a3c10;
+  --selection: rgba(68, 147, 248, 0.28);
+  --table-stripe: #12171e;
+  --danger: #ff7b72;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  line-height: var(--leading);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Theme flips should feel instant but not jarring. */
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+::selection { background: var(--selection); }
+
+#page {
+  min-height: 100%;
+  padding: 48px 24px 45vh 24px;   /* deep bottom padding keeps the last line off the floor */
+  display: flex;
+  justify-content: center;
+}
+
+#editor {
+  width: 100%;
+  max-width: var(--measure);
+  outline: none;
+  caret-color: var(--accent);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- typography */
+
+#editor > * { margin: 0 0 1.05em 0; }
+
+#editor h1, #editor h2, #editor h3,
+#editor h4, #editor h5, #editor h6 {
+  font-weight: 650;
+  line-height: 1.28;
+  margin: 1.6em 0 0.6em;
+  letter-spacing: -0.011em;
+}
+#editor > h1:first-child,
+#editor > h2:first-child,
+#editor > h3:first-child { margin-top: 0; }
+
+#editor h1 { font-size: 2.05em; }
+#editor h2 { font-size: 1.62em; padding-bottom: .24em; border-bottom: 1px solid var(--border); }
+#editor h3 { font-size: 1.32em; }
+#editor h4 { font-size: 1.12em; }
+#editor h5 { font-size: 1em; }
+#editor h6 { font-size: .92em; color: var(--fg-muted); }
+
+#editor p { margin: 0 0 1.05em; }
+#editor strong { font-weight: 680; }
+#editor em { font-style: italic; }
+#editor del { color: var(--fg-muted); }
+#editor mark { background: var(--mark-bg); color: inherit; padding: 0 .15em; border-radius: 2px; }
+#editor small { font-size: .86em; color: var(--fg-muted); }
+
+#editor a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+}
+#editor a:hover { border-bottom-color: var(--accent); }
+
+#editor hr {
+  height: 1px;
+  border: 0;
+  background: var(--border);
+  margin: 2em 0;
+}
+
+#editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: .4em 0;
+}
+
+/* ---------------------------------------------------------------- quotes & lists */
+
+#editor blockquote {
+  margin: 1.2em 0;
+  padding: .15em 0 .15em 1.1em;
+  border-left: 3px solid var(--quote-bar);
+  color: var(--fg-muted);
+}
+#editor blockquote > :last-child { margin-bottom: 0; }
+
+#editor ul, #editor ol { padding-left: 1.6em; margin: 0 0 1.05em; }
+#editor li { margin: .28em 0; }
+#editor li > ul, #editor li > ol { margin: .28em 0 0; }
+
+/* Task lists: Markdig emits a disabled checkbox; we re-enable it so the user can tick it. */
+#editor li.task-list-item,
+#editor li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.25em; }
+#editor input[type="checkbox"] {
+  margin-right: .55em;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.08em;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- code */
+
+#editor code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border: 1px solid var(--code-border);
+  border-radius: 5px;
+  padding: .12em .36em;
+}
+
+#editor pre {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 1.2em 0;
+  line-height: 1.55;
+}
+#editor pre > code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: .86em;
+  white-space: pre;
+  display: block;
+}
+
+/* Minimal, dependency-free token colouring applied by the engine's highlighter. */
+.tok-keyword { color: #cf222e; }
+.tok-string  { color: #0a3069; }
+.tok-comment { color: var(--fg-faint); font-style: italic; }
+.tok-number  { color: #953800; }
+.tok-func    { color: #8250df; }
+:root[data-theme="dark"] .tok-keyword { color: #ff7b72; }
+:root[data-theme="dark"] .tok-string  { color: #a5d6ff; }
+:root[data-theme="dark"] .tok-number  { color: #ffa657; }
+:root[data-theme="dark"] .tok-func    { color: #d2a8ff; }
+
+/* ---------------------------------------------------------------- tables */
+
+#editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.3em 0;
+  font-size: .95em;
+  display: block;
+  overflow-x: auto;
+}
+#editor th, #editor td {
+  border: 1px solid var(--border);
+  padding: .5em .8em;
+  text-align: left;
+}
+#editor th { background: var(--bg-elevated); font-weight: 640; }
+#editor tbody tr:nth-child(even) { background: var(--table-stripe); }
+
+/* ---------------------------------------------------------------- mermaid & math */
+
+#editor .mermaid {
+  display: block;
+  margin: 1.4em 0;
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: .85em;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+/* Once Mermaid has drawn the SVG the monospace fallback styling stops applying. */
+#editor .mermaid[data-processed="true"] {
+  white-space: normal;
+  font-family: var(--font-body);
+  color: var(--fg);
+}
+#editor .mermaid svg { max-width: 100%; height: auto; }
+
+#editor .math {
+  font-family: var(--font-mono);
+  color: var(--fg);
+}
+#editor div.math {
+  display: block;
+  margin: 1.2em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.katex { font-size: 1.05em; }
+.katex-display { margin: 1.2em 0; overflow-x: auto; overflow-y: hidden; }
+
+/* ---------------------------------------------------------------- footnotes, misc */
+
+#editor .footnotes {
+  border-top: 1px solid var(--border);
+  margin-top: 2.4em;
+  padding-top: 1em;
+  font-size: .9em;
+  color: var(--fg-muted);
+}
+#editor sup a { border-bottom: 0; }
+
+/* Empty-paragraph placeholder, so a blank document is not a blank void. */
+#editor > p:only-child:empty::before,
+#editor > p:only-child > br:only-child::before {
+  content: "Start writing…";
+  color: var(--fg-faint);
+  pointer-events: none;
+}
+
+/* Block currently under the caret — a very quiet highlight, Typora-style focus. */
+#editor .rio-active-block { }
+
+/* Scrollbars that match the theme instead of the OS default. */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--fg-faint); }
+
+/* ---- export overrides ---- */
+#page { padding: 32px 24px; display: block; }
+#editor { margin: 0 auto; }
+
+@media print {
+  @page { margin: 18mm 16mm; }
+  html, body { background: #ffffff !important; color: #000000 !important; }
+  #page { padding: 0; }
+  #editor { max-width: none; }
+
+  /* Keep structures intact across page breaks. */
+  pre, blockquote, table, figure, .mermaid { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; }
+  img { max-width: 100% !important; }
+
+  /* A printed link is useless unless its target is visible. */
+  a { color: inherit; border-bottom: none; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; opacity: 0.7; }
+}
+</style>
+</head>
+<body>
+<main id="page">
+<div id="editor">
+<h1 id="privacy-policy-for-rioeditor">Privacy Policy for RioEditor</h1>
+<p><strong>Last updated: 6 September 2026</strong></p>
+<p>RioEditor is a Markdown editor published by Antargyan. This policy describes exactly what the app does with your information. It is short because the app does very little.</p>
+<h2 id="the-short-version">The short version</h2>
+<p><strong>RioEditor does not collect, transmit, or sell any personal information.</strong> There are no accounts, no sign-in, no analytics, no telemetry, no advertising, and no third-party tracking of any kind. Your documents stay on your device.</p>
+<h2 id="your-documents">Your documents</h2>
+<p>Documents you write stay where you put them: on your device's file system, or — in the web version — in your browser's local storage. RioEditor never uploads, transmits, or reads them for any purpose other than showing them to you and saving them where you asked.</p>
+<p>The app can only open and save files you explicitly choose through your system's own file picker. It does not scan or index your storage.</p>
+<h2 id="what-is-stored-on-your-device">What is stored on your device</h2>
+<p>RioEditor keeps a small settings file on your device (or, in the web version, in browser local storage). It contains:</p>
+<ul>
+<li>your chosen theme (light or dark)</li>
+<li>the path of the last document you opened, so it can be reopened next time</li>
+<li>window size and position</li>
+<li>the autosave interval</li>
+<li>an unsaved draft, so that work is not lost if the app closes unexpectedly</li>
+<li>counters used to decide whether to mention sponsorship: how many times the app has been launched, on how many separate days, how many times a document has been saved, and whether the sponsorship message has been shown or dismissed</li>
+</ul>
+<p><strong>None of this leaves your device.</strong> The counters exist solely so the app can avoid asking an occasional user to sponsor it; they are never transmitted anywhere, and they identify nothing about you. Deleting the app, or clearing site data in the web version, removes all of it.</p>
+<h2 id="network-access">Network access</h2>
+<p>RioEditor works fully offline. It makes exactly one kind of network request, and only to render two optional things:</p>
+<ul>
+<li><strong>Mathematical notation</strong> is rendered by KaTeX, and <strong>diagrams</strong> by Mermaid. Both are fetched from the public CDN <code>cdn.jsdelivr.net</code> when a document contains them.</li>
+</ul>
+<p>As with any request to any website, the CDN receives your IP address and standard request information. RioEditor sends it nothing else — not your document, not your settings, not an identifier.</p>
+<p><strong>You can turn this off.</strong> Set <code>AllowRemoteScripts</code> to <code>false</code> in the app's settings file, and RioEditor makes no network requests at all. Maths and diagrams then appear as plain text.</p>
+<p>Separately, if you click a link inside a document, or the &quot;Sponsor&quot; button, your normal web browser opens that address. What happens next is governed by that site's own privacy policy, not this one.</p>
+<h2 id="children">Children</h2>
+<p>RioEditor is a text editor suitable for all ages. It collects nothing from anyone, including children.</p>
+<h2 id="data-requests">Data requests</h2>
+<p>Because no personal data is collected or transmitted, there is nothing for us to disclose, correct, export, or delete on request. Everything the app stores is already under your control on your own device.</p>
+<h2 id="changes-to-this-policy">Changes to this policy</h2>
+<p>If this policy changes, the revised version will be published at this address with an updated date. Material changes will also be noted in the app's release notes.</p>
+<h2 id="contact">Contact</h2>
+<p>Questions about this policy: open an issue at <a href="https://github.com/antargyan/rioeditor/issues">https://github.com/antargyan/rioeditor/issues</a>, or write to the address listed on the developer's App Store listing.</p>
+<p>The app is open source. If you would rather verify these claims than take our word for them, the entire source is at <a href="https://github.com/antargyan/rioeditor">https://github.com/antargyan/rioeditor</a>.</p>
+
+</div>
+</main>
+<script>
+/* ============================================================================
+ * RioEditor — code highlighter
+ * ---------------------------------------------------------------------------
+ * Shared deliberately: the editor injects this alongside the engine, and HTML
+ * export inlines the same file. Keeping one implementation is what stops an
+ * export from looking different to the editor it came from.
+ * ========================================================================== */
+(function () {
+  'use strict';
+
+  var KEYWORDS = 'function|return|const|let|var|if|else|for|while|class|new|import|export|from|' +
+    'async|await|try|catch|finally|throw|public|private|protected|static|void|int|string|bool|double|' +
+    'using|namespace|def|end|struct|enum|interface|switch|case|break|continue|this|null|true|false|nil|None|True|False';
+
+  /*
+   * One combined pattern, scanned in a single pass. Doing this as a chain of
+   * .replace() calls is subtly wrong: the second pass matches the markup the
+   * first pass just inserted (a class="tok-comment" attribute looks exactly
+   * like a string literal).
+   */
+  var TOKEN_PATTERN = new RegExp(
+    '(\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/|(?:^|\\n)[ \\t]*#[^\\n]*)' +   // 1: comments
+    '|("(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\')' +            // 2: strings
+    '|\\b(\\d+(?:\\.\\d+)?)\\b' +                                        // 3: numbers
+    '|\\b(' + KEYWORDS + ')\\b',                                          // 4: keywords
+    'g');
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  function apply(code) {
+    if (!code || code.dataset.rioHighlighted === '1') return;
+    var text = code.textContent;
+    if (!text || text.length > 20000) return;            // don't choke on huge blocks
+
+    var out = '';
+    var last = 0;
+    var match;
+    TOKEN_PATTERN.lastIndex = 0;
+    while ((match = TOKEN_PATTERN.exec(text)) !== null) {
+      out += escapeHtml(text.slice(last, match.index));
+      var cls = match[1] ? 'tok-comment'
+              : match[2] ? 'tok-string'
+              : match[3] ? 'tok-number'
+              : 'tok-keyword';
+      out += '<span class="' + cls + '">' + escapeHtml(match[0]) + '</span>';
+      last = match.index + match[0].length;
+      if (TOKEN_PATTERN.lastIndex === match.index) TOKEN_PATTERN.lastIndex++;  // zero-width guard
+    }
+    out += escapeHtml(text.slice(last));
+
+    code.innerHTML = out;
+    code.dataset.rioHighlighted = '1';
+  }
+
+  /** Highlights every code block under root, optionally skipping one subtree. */
+  function applyAll(root, skip) {
+    var blocks = (root || document).querySelectorAll('pre > code');
+    for (var i = 0; i < blocks.length; i++) {
+      if (skip && skip.contains(blocks[i])) continue;
+      apply(blocks[i]);
+    }
+  }
+
+  window.rioHighlight = { apply: apply, applyAll: applyAll, escapeHtml: escapeHtml };
+})();
+
+</script>
+<script>
+  window.addEventListener('load', function () {
+    if (window.rioHighlight) window.rioHighlight.applyAll(document);
+
+    if (typeof window.renderMathInElement === 'function') {
+      window.renderMathInElement(document.body, {
+        // Markdig's Mathematics extension emits \( \) and \[ \], not just $ and $$.
+        // Omitting those leaves inline math rendered as literal backslash-paren text.
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true }
+        ],
+        throwOnError: false,
+        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+        ignoredClasses: ['katex', 'katex-display']
+      });
+    }
+    if (window.mermaid) {
+      window.mermaid.initialize({ startOnLoad: true, securityLevel: 'strict' });
+    }
+  });
+</script>
+<footer style="max-width:46rem;margin:3.5em auto 0;padding-top:1.2em;
+               border-top:1px solid var(--border);color:var(--fg-muted);font-size:.92em">
+  RioEditor is free and open source software published by Antargyan under the MIT licence.
+  <a href="./">Try the editor in your browser</a> &middot;
+  <a href="https://github.com/antargyan/rioeditor">Source code</a>
+</footer>
+</body>
+</html>

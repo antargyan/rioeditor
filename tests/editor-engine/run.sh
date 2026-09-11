@@ -55,4 +55,18 @@ case "$title" in
     grep -o '<div class="fail">[^<]*' "$out/dom.html" | sed 's|<div class="fail">||'
     exit 1 ;;
 esac
+
+# "PASS" alone is not enough. If a syntax error stopped tests.js part way, or a block of tests
+# silently failed to register, the page would still report a pass - just of fewer tests. Assert
+# the count so shrinking the suite has to be deliberate.
+expected="${RIO_MIN_TESTS:-35}"
+count="${title#PASS }"
+case "$count" in
+  ''|*[!0-9]*) echo "Could not read a test count from the title: '$title'" >&2; exit 1 ;;
+esac
+if [ "$count" -lt "$expected" ]; then
+  echo "Only $count tests ran; expected at least $expected. Lower RIO_MIN_TESTS deliberately if" \
+       "the suite really did shrink." >&2
+  exit 1
+fi
 exit 0

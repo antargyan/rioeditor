@@ -96,39 +96,49 @@ jobs:
           echo "Using provisioning profile: $name"
           echo "PROFILE_NAME=$name" >> "$GITHUB_ENV"
 
-      # MSBuild's failure for a certificate/profile mismatch is "No iOS signing identities match
-      # the specified provisioning profile", raised only after the archive has run. A profile names
-      # the exact certificates it accepts, and the keychain says which are present, so the mismatch
-      # is knowable up front -- and the useful part is *which* certificate was expected.
+      # MSBuild reports a certificate/profile mismatch as "No iOS signing identities match the
+      # specified provisioning profile", and only after the archive has run. A profile lists the
+      # exact certificates it accepts and the keychain says which are present, so the mismatch is
+      # knowable up front - and the useful part is naming the certificate that was expected.
       - name: Check the certificate matches the profile
         run: |
           dir="$HOME/Library/MobileDevice/Provisioning Profiles"
-          profile=$(grep -rl . "$dir"/*.mobileprovision 2>/dev/null | head -1)
+          profile=$(ls "$dir"/*.mobileprovision 2>/dev/null | head -1)
           [ -n "$profile" ] || { echo "::error::No provisioning profile on disk"; exit 1; }
 
-          wanted=$(security cms -D -i "$profile" 2>/dev/null | plutil -convert xml1 -o - - | python3 -c "
-import sys, re, base64, subprocess
-xml = sys.stdin.read()
-block = re.search(r'<key>DeveloperCertificates</key>\s*<array>(.*?)</array>', xml, re.S)
-for blob in re.findall(r'<data>(.*?)</data>', block.group(1), re.S) if block else []:
-    der = base64.b64decode(re.sub(r'\s', '', blob))
-    out = subprocess.run(['openssl', 'x509', '-inform', 'DER', '-noout', '-serial'],
-                         input=der, capture_output=True).stdout.decode()
-    print(out.strip().split('=')[1])
-")
-          present=$(security find-certificate -a -c "Apple Distribution" -p | \
-                    awk '/BEGIN/{n++} {print > ("/tmp/c" n ".pem")} END{}' ; \
-                    for f in /tmp/c*.pem; do openssl x509 -in "$f" -noout -serial 2>/dev/null | cut -d= -f2; done)
+          plist="$RUNNER_TEMP/profile.plist"
+          security cms -D -i "$profile" > "$plist"
 
-          echo "Profile accepts: $wanted"
-          echo "Keychain holds : $present"
-          for w in $wanted; do
-            case "$present" in *"$w"*) echo "Match on $w"; exit 0 ;; esac
+          wanted=""
+          i=0
+          while :; do
+            der=$(plutil -extract "DeveloperCertificates.$i" raw -o - "$plist" 2>/dev/null) || break
+            [ -n "$der" ] || break
+            serial=$(printf '%s' "$der" | base64 -d 2>/dev/null \
+              | openssl x509 -inform DER -noout -serial 2>/dev/null | cut -d= -f2)
+            [ -n "$serial" ] && wanted="$wanted $serial"
+            i=$((i+1))
           done
-          echo "::error::The signing certificate in APPLE_DIST_CERT_P12 is not one this profile" \
-               "accepts. The profile expects serial(s): $wanted. Re-export the .p12 from the" \
-               "Apple Distribution identity with that serial and update the secret."
+
+          work="$RUNNER_TEMP/certs"; rm -rf "$work"; mkdir -p "$work"
+          security find-certificate -a -c "Apple Distribution" -p \
+            | awk -v d="$work" '/BEGIN/{n++} {print > (d "/c" n ".pem")}'
+          present=""
+          for f in "$work"/c*.pem; do
+            [ -e "$f" ] || continue
+            present="$present $(openssl x509 -in "$f" -noout -serial 2>/dev/null | cut -d= -f2)"
+          done
+
+          echo "Profile accepts:$wanted"
+          echo "Keychain holds :$present"
+          for w in $wanted; do
+            case "$present" in *"$w"*) echo "Certificate matches the profile ($w)"; exit 0 ;; esac
+          done
+          echo "::error::The certificate in APPLE_DIST_CERT_P12 is not one this profile accepts." \
+               "The profile expects:$wanted . Re-export the .p12 from that identity and update" \
+               "APPLE_DIST_CERT_P12 and APPLE_DIST_CERT_PASSWORD."
           exit 1
+
 
       - name: Archive the iOS app
         run: |

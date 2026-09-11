@@ -46,6 +46,16 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      # An invalid workflow file fails quietly: GitHub stops showing the workflow's name, lists it
+      # by path, and never runs it. Cheaper to catch here than to wonder why a publish did nothing.
+      - name: Validate the workflow files
+        run: |
+          for f in .github/workflows/*.yml; do
+            ruby -ryaml -e 'YAML.load_file(ARGV[0])' "$f" \
+              || { echo "::error file=$f::not valid YAML"; exit 1; }
+          done
+          echo "All workflow files parse."
+
       - name: Install the WebAssembly workload
         run: dotnet workload install wasm-tools
 

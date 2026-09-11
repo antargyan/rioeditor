@@ -19,6 +19,9 @@
     <ApplicationId>ai.rioeditor.editor</ApplicationId>
     <!-- Avalonia owns the NSApplication run loop; the SDK must not generate its own entry point. -->
     <GenerateProgramFile>false</GenerateProgramFile>
+    <!-- Single source of truth for entitlements: the build embeds these, and publish-macos.yml
+         passes the same file when it re-signs with the Developer ID certificate. -->
+    <CodesignEntitlements>RioEditor.entitlements</CodesignEntitlements>
   </PropertyGroup>
 
   <ItemGroup>

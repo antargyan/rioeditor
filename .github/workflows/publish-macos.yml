@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write   # needed to create the release and attach the DMG
 
+env:
+  # Not a secret: the team identifier is embedded in every signed binary.
+  TEAM_ID: 38N8GYJUC7
+
 jobs:
   publish:
     name: Build, notarize and release
@@ -52,6 +56,22 @@ jobs:
 
       # CreatePackage=false: publish defaults it to true on macOS and builds an installer .pkg,
       # which this DMG pipeline never uses. The .app is what gets signed.
+      # Without this, signing fails with "unable to build chain to self-signed root" and then
+      # errSecInternalComponent. A runner keychain holds Apple's roots but not necessarily the
+      # Developer ID intermediate, and a .p12 only carries the chain if it was exported with one.
+      - name: Install Apple's intermediate certificates
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o DeveloperIDG2CA.cer https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          curl -fsSL -o AppleWWDRCAG3.cer  https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+          for cert in DeveloperIDG2CA AppleWWDRCAG3; do
+            # A duplicate import is not an error worth failing on; the signature assertion below
+            # is what actually proves the chain resolved.
+            security import "$cert.cer" -k rioeditor-macos.keychain-db -T /usr/bin/codesign 2>/dev/null || true
+          done
+          security find-certificate -a -c "Developer ID Certification Authority" >/dev/null \
+            || { echo "::error::Developer ID intermediate not present after import"; exit 1; }
+
       - name: Build the .app
         run: |
           dotnet publish src/RioEditor.Desktop.MacOS -c Release -r osx-arm64 \
@@ -62,16 +82,43 @@ jobs:
       # deprecated for signing but still the pragmatic way to cover the bundled .NET dylibs.
       - name: Sign
         run: |
-          # The .app is left in the build output; `dotnet publish -o` copies the .pkg to the
-          # publish directory but never the bundle, so searching there finds nothing and the
-          # signing step below would run against an empty path.
           APP=$(find src/RioEditor.Desktop.MacOS/bin/Release -maxdepth 4 -type d -name '*.app' | head -1)
-          if [ -z "$APP" ]; then echo "No .app was produced." >&2; exit 1; fi
-          echo "Signing $APP"
+          if [ -z "$APP" ]; then echo "::error::No .app was produced."; exit 1; fi
           echo "APP=$APP" >> "$GITHUB_ENV"
-          codesign --force --deep --timestamp --options runtime \
+          echo "Signing $APP"
+
+          # Nested code first, bundle last, so the bundle's seal covers already-signed libraries.
+          # Apple deprecates --deep for signing; doing it in order is the supported equivalent.
+          find "$APP" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 |
+            xargs -0 -n1 codesign --force --timestamp --options runtime \
+              --sign "Developer ID Application"
+
+          # The entitlements argument is mandatory, not cosmetic: codesign --force rebuilds the
+          # signature from scratch and drops whatever the build embedded. Signing hardened without
+          # re-applying them ships an app with no JIT entitlement, which notarises cleanly and then
+          # fails to launch on the user's machine.
+          codesign --force --timestamp --options runtime \
+            --entitlements src/RioEditor.Desktop.MacOS/RioEditor.entitlements \
             --sign "Developer ID Application" "$APP"
+
+      # codesign --verify passes on an ad-hoc signature, so on its own it cannot distinguish a
+      # properly signed app from one where signing quietly fell back. These assertions can.
+      - name: Verify the signature is genuine
+        run: |
           codesign --verify --deep --strict --verbose=2 "$APP"
+          info=$(codesign -dvvv "$APP" 2>&1)
+
+          echo "$info" | grep -q "Authority=Developer ID Application" \
+            || { echo "::error::Not signed by Developer ID Application"; echo "$info"; exit 1; }
+          echo "$info" | grep -q "TeamIdentifier=$TEAM_ID" \
+            || { echo "::error::TeamIdentifier is missing or unexpected"; echo "$info"; exit 1; }
+          echo "$info" | grep -q "Signature=adhoc" \
+            && { echo "::error::Signature is ad-hoc"; exit 1; }
+
+          codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "allow-jit" \
+            || { echo "::error::JIT entitlement was stripped by signing"; exit 1; }
+
+          echo "Signed by Developer ID, team $TEAM_ID, JIT entitlement intact."
 
       - name: Build the DMG
         run: |

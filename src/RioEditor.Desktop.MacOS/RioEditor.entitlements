@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    The .NET runtime JITs, so under the hardened runtime this entitlement is not optional: without
+    it CoreCLR cannot allocate executable memory and the app dies at launch. The macOS SDK injects
+    it at build time, but re-signing with codesign and no entitlements argument silently strips it
+    again, so publish-macos.yml passes this same file when it signs with the Developer ID
+    certificate.
+
+    An app signed hardened but missing this still notarises cleanly, which is what makes the
+    mistake expensive: it is only discovered by whoever runs the shipped build.
+  -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+</dict>
+</plist>

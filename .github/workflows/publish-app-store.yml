@@ -49,6 +49,13 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_DIST_CERT_P12 }}
           p12-password: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
 
+      # The iOS chain needs Apple WWDR. A hosted runner usually has it, but an absent
+      # intermediate fails the same opaque way the Developer ID one does on macOS.
+      - name: Install Apple's intermediate certificate
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/AppleWWDRCAG3.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+          security import "$RUNNER_TEMP/AppleWWDRCAG3.cer" -k rioeditor-ios.keychain-db -T /usr/bin/codesign 2>/dev/null || true
+
       - uses: Apple-Actions/download-provisioning-profiles@v6.1.0
         with:
           bundle-id: ${{ env.BUNDLE_ID }}

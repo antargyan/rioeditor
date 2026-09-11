@@ -96,6 +96,40 @@ jobs:
           echo "Using provisioning profile: $name"
           echo "PROFILE_NAME=$name" >> "$GITHUB_ENV"
 
+      # MSBuild's failure for a certificate/profile mismatch is "No iOS signing identities match
+      # the specified provisioning profile", raised only after the archive has run. A profile names
+      # the exact certificates it accepts, and the keychain says which are present, so the mismatch
+      # is knowable up front -- and the useful part is *which* certificate was expected.
+      - name: Check the certificate matches the profile
+        run: |
+          dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          profile=$(grep -rl . "$dir"/*.mobileprovision 2>/dev/null | head -1)
+          [ -n "$profile" ] || { echo "::error::No provisioning profile on disk"; exit 1; }
+
+          wanted=$(security cms -D -i "$profile" 2>/dev/null | plutil -convert xml1 -o - - | python3 -c "
+import sys, re, base64, subprocess
+xml = sys.stdin.read()
+block = re.search(r'<key>DeveloperCertificates</key>\s*<array>(.*?)</array>', xml, re.S)
+for blob in re.findall(r'<data>(.*?)</data>', block.group(1), re.S) if block else []:
+    der = base64.b64decode(re.sub(r'\s', '', blob))
+    out = subprocess.run(['openssl', 'x509', '-inform', 'DER', '-noout', '-serial'],
+                         input=der, capture_output=True).stdout.decode()
+    print(out.strip().split('=')[1])
+")
+          present=$(security find-certificate -a -c "Apple Distribution" -p | \
+                    awk '/BEGIN/{n++} {print > ("/tmp/c" n ".pem")} END{}' ; \
+                    for f in /tmp/c*.pem; do openssl x509 -in "$f" -noout -serial 2>/dev/null | cut -d= -f2; done)
+
+          echo "Profile accepts: $wanted"
+          echo "Keychain holds : $present"
+          for w in $wanted; do
+            case "$present" in *"$w"*) echo "Match on $w"; exit 0 ;; esac
+          done
+          echo "::error::The signing certificate in APPLE_DIST_CERT_P12 is not one this profile" \
+               "accepts. The profile expects serial(s): $wanted. Re-export the .p12 from the" \
+               "Apple Distribution identity with that serial and update the secret."
+          exit 1
+
       - name: Archive the iOS app
         run: |
           dotnet publish src/RioEditor.iOS -c Release -f net10.0-ios -r ios-arm64 \

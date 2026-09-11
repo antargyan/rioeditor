@@ -497,9 +497,30 @@ dotnet test tests/RioEditor.Core.Tests
 - **Export, settings and the document model**, including that a corrupt settings file still lets
   the app start.
 
+### Editor engine tests
+
+```bash
+./tests/editor-engine/run.sh
+```
+
+35 tests for `editor.js`, run in **headless Chrome against a real contenteditable** rather than
+jsdom, which implements neither `document.execCommand` nor enough of `Selection` and `Range` for a
+passing test to mean anything. Everything is driven through the engine's public surface —
+`window.RioEditor` and `window.rio.receive` — plus genuine DOM events, so a test fails when a user
+would notice rather than when an internal detail moves. Covered: the inline rules (`**bold**`,
+`` `code` ``, `~~strike~~`, links) including that they do *not* fire inside a code block; the block
+rules (`# `, `- `, `1. `, `> `, `- [ ] `, a fence, a rule); every toolbar command; the host
+protocol; and task-list checkboxes.
+
+`HostMessageContractTests` pins the JSON shape the host and engine exchange, which no compiler
+checks on either side. A rename there leaves the other end reading `undefined`, and the symptom is
+a toolbar button that silently does nothing — which is exactly what happened while writing these
+tests, when one was written against an older field name.
+
 The suite was mutation-tested rather than merely run: reintroducing the Mermaid bug, admitting
-`<script>` through the sanitizer, and zeroing the sponsorship quiet period each turn it red. A
-suite that stays green against a broken implementation is worth nothing.
+`<script>` through the sanitizer, and zeroing the sponsorship quiet period each turn the C# suite
+red; disabling the bold, heading and inline-code rules each turn the engine suite red. A suite that
+stays green against a broken implementation is worth nothing.
 
 ### Known limitations
 

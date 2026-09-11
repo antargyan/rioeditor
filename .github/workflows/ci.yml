@@ -76,6 +76,12 @@ jobs:
       - name: Run the tests
         run: dotnet test tests/RioEditor.Core.Tests -c Release --logger "console;verbosity=normal"
 
+      # The engine runs in a real browser, not jsdom: it depends on Selection, Range and
+      # document.execCommand, none of which jsdom implements well enough for a pass to mean
+      # anything. Chrome is preinstalled on the hosted image.
+      - name: Run the editor engine tests
+        run: ./tests/editor-engine/run.sh
+
       - name: Publish the WebAssembly site
         run: dotnet publish src/RioEditor.Browser -c Release -o publish/wasm
 

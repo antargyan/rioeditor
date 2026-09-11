@@ -510,6 +510,17 @@ minutes per build; worth enabling once the demo gets real traffic.
 4. **Apple Developer Program** — unlocks notarised macOS *and* iOS together.
 5. **Google Play** — gated on the Avalonia 12 migration, so start that first if Android matters.
 
+## What a tag triggers
+
+A `v*` tag runs the **Apple** publishes only: the notarised macOS DMG onto a GitHub Release, and
+the iOS build to TestFlight. Both land somewhere a human still has to act before anyone else sees
+them — a release you write notes for, a build you promote from TestFlight.
+
+The **Microsoft Store** and **Google Play** workflows are `workflow_dispatch` only, on purpose.
+Committing a Store submission sends an update to everyone who already installed the app, and that
+is too consequential to happen as a side effect of tagging a version. Run those from the Actions
+tab when you mean to release, choosing track and status as you go.
+
 ## Version numbering
 
 `Directory.Build.props` holds the single source of truth:

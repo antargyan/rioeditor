@@ -1,12 +1,12 @@
 name: Publish to the Microsoft Store
 
 # Two ways in:
-#   - pushing a v* tag publishes for real
+#   - manual only: a tag no longer triggers this. Committing a submission sends an update to
+#     everyone who already installed the app, which is too much to happen as a side effect of
+#     tagging a version. Run it deliberately, from the Actions tab.
 #   - running it by hand defaults to a DRAFT submission, so the pipeline can be exercised
 #     end to end without anything reaching customers
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       draft:

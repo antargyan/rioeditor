@@ -1,13 +1,13 @@
 name: Publish to Google Play
 
-# A v* tag publishes; a manual run is for rehearsing on the internal track.
+# Manual only. A tag used to trigger this, but the tag path fell through to the same internal
+# track and draft status a manual run uses, so the trigger promised a release it did not perform.
+# Store releases are deliberate: choose the track and status when you run it.
 #
 # The tag trigger was disabled while our 64-bit libraries were 4 KB page aligned, which Android 16
 # rejects. Avalonia 12 brought SkiaSharp 3.119.4 and all 224 shipped 64-bit .so files are now
 # 16 KB aligned, so it is live again.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       track:

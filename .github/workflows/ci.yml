@@ -73,6 +73,9 @@ jobs:
       - name: Build the WebAssembly head
         run: dotnet build src/RioEditor.Browser -c Release
 
+      - name: Run the tests
+        run: dotnet test tests/RioEditor.Core.Tests -c Release --logger "console;verbosity=normal"
+
       - name: Publish the WebAssembly site
         run: dotnet publish src/RioEditor.Browser -c Release -o publish/wasm
 

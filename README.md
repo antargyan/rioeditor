@@ -474,6 +474,33 @@ All thresholds are constants at the top of `SponsorPolicy`, and the behaviour is
 fake-clock test in the commit history (never on first launch, never without saves, quiet periods
 honoured, lifetime cap, permanent opt-out).
 
+### Tests
+
+```bash
+dotnet test tests/RioEditor.Core.Tests
+```
+
+84 tests over the parts where a defect is expensive rather than merely visible:
+
+- **Round trip.** The editor's document is HTML and the file on disk is Markdown, so every edit
+  crosses that boundary and a defect there rewrites the user's file rather than just rendering
+  something oddly. Includes the regression for the bug that prompted the suite: a rendered Mermaid
+  diagram being read back as its own SVG and saved over the graph source. Round-tripping is also
+  asserted to be *idempotent*, because a transform that drifts a little on each pass corrupts a
+  document slowly enough that the cause is long forgotten by the time anyone notices.
+- **Sanitizer.** A security boundary, so the tests are written as attacks: script and iframe
+  injection, event-handler attributes, `javascript:` and `data:text/html` URLs, malformed markup.
+  Each also asserts the surrounding document survives, since discarding content is its own bug.
+- **Sponsorship policy.** A fake clock makes the fortnight-long quiet periods testable in
+  milliseconds, and pins the promises the README makes: never on first launch, never without a
+  save, at most three asks, permanent dismissal.
+- **Export, settings and the document model**, including that a corrupt settings file still lets
+  the app start.
+
+The suite was mutation-tested rather than merely run: reintroducing the Mermaid bug, admitting
+`<script>` through the sanitizer, and zeroing the sponsorship quiet period each turn it red. A
+suite that stays green against a broken implementation is worth nothing.
+
 ### Known limitations
 
 - Mobile contenteditable has its own selection and virtual-keyboard behaviour that has not been

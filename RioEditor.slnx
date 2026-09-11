@@ -8,4 +8,7 @@
     <Project Path="src/RioEditor.Desktop/RioEditor.Desktop.csproj" />
     <Project Path="src/RioEditor.iOS/RioEditor.iOS.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RioEditor.Core.Tests/RioEditor.Core.Tests.csproj" />
+  </Folder>
 </Solution>

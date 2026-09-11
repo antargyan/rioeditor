@@ -70,11 +70,37 @@ jobs:
       # No ArchiveOnBuild here: that is a legacy Xamarin property and does not exist in the
       # .NET 10 iOS SDK. Publishing sets BuildIpa itself, and IpaPackageDir defaults to the
       # publish directory, which is what the next step searches.
+      # The profile's name is whatever it was called in the developer portal, which the workflow
+      # cannot know. Hardcoding a guess means signing fails on a name mismatch, so read the name
+      # out of the profile that was actually downloaded for this bundle identifier.
+      - name: Resolve the provisioning profile
+        run: |
+          dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          name=""
+          for profile in "$dir"/*.mobileprovision; do
+            [ -e "$profile" ] || continue
+            plist=$(security cms -D -i "$profile" 2>/dev/null) || continue
+            appid=$(printf '%s' "$plist" | plutil -extract Entitlements.application-identifier raw - 2>/dev/null) || continue
+            case "$appid" in
+              *".$BUNDLE_ID")
+                name=$(printf '%s' "$plist" | plutil -extract Name raw - 2>/dev/null)
+                break ;;
+            esac
+          done
+          if [ -z "$name" ]; then
+            echo "::error::No provisioning profile for $BUNDLE_ID was downloaded. Check that the" \
+                 "bundle identifier is registered and an App Store profile exists for it."
+            ls -la "$dir" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Using provisioning profile: $name"
+          echo "PROFILE_NAME=$name" >> "$GITHUB_ENV"
+
       - name: Archive the iOS app
         run: |
           dotnet publish src/RioEditor.iOS -c Release -f net10.0-ios -r ios-arm64 \
             -p:RioBuild=${{ github.run_number }} \
-            -p:CodesignProvision="RioEditor App Store" \
+            -p:CodesignProvision="$PROFILE_NAME" \
             -p:CodesignKey="Apple Distribution" \
             -o publish/ios
 

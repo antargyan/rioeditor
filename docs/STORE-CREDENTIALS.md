@@ -174,6 +174,15 @@ jarsigner -verify -verbose:summary -certs ai.rioeditor.editor-Signed.aab
 - Apple Developer Program membership (US$99/year)
 - Bundle identifier `ai.rioeditor.editor` registered in the developer portal
 - An app record created in App Store Connect
+- An **App Store provisioning profile** for that bundle identifier
+
+**What carries over from another app in the same team, and what does not.** Certificates and App
+Store Connect API keys are issued to the *team*, so one of each serves every app: if another app
+has already been shipped under this team, reuse them rather than creating more. Provisioning
+profiles are tied to a bundle identifier and never carry over.
+
+The profile's *name* does not matter. The workflow reads it out of whichever profile was
+downloaded for the bundle identifier, so it cannot break on a naming convention.
 
 ### 1. Create an App Store Connect API key
 

@@ -278,7 +278,7 @@ Every one has a safe mode; use it before trusting a tag.
 | --- | --- | --- |
 | `publish-microsoft-store.yml` | manual with `draft: true` — uploads without committing the submission | yes |
 | `publish-google-play.yml` | manual, `track: internal`, `status: draft` | yes |
-| `publish-app-store.yml` | manual — TestFlight is not the App Store | no |
+| `publish-app-store.yml` | manual — TestFlight is not the App Store | yes — build uploaded |
 | `publish-macos.yml` | manual — produces a **draft** GitHub Release | not end to end; everything up to signing rehearsed locally |
 
 Microsoft Store and Google Play have both run for real and work. iOS and macOS never have — they

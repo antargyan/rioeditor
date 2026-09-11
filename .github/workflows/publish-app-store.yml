@@ -161,10 +161,20 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # wait-for-processing is off deliberately. The upload itself takes seconds, but App Store
+      # processing can take far longer than the App Store Connect bearer token stays valid: the
+      # first attempt uploaded the build successfully, polled for visibility for thirteen minutes,
+      # and then failed the whole job on a 401 because the token had expired underneath it. The
+      # build was already in App Store Connect by then, so the job reported failure for something
+      # that had succeeded.
+      #
+      # The cost of skipping the wait is that this action cannot attach metadata afterwards, so
+      # release notes and the encryption declaration are set in App Store Connect instead.
       - uses: Apple-Actions/upload-testflight-build@v5.3.0
         with:
           app-path: ${{ steps.ipa.outputs.path }}
           app-type: ios
+          wait-for-processing: 'false'
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
           api-key-id: ${{ secrets.ASC_KEY_ID }}
           api-private-key: ${{ secrets.ASC_PRIVATE_KEY }}

@@ -120,6 +120,22 @@ jobs:
 
           echo "Signed by Developer ID, team $TEAM_ID, JIT entitlement intact."
 
+      # The DMG gets stapled below, but a user drags the app OUT of it. That copy carries no
+      # ticket of its own, so an offline first launch would have nothing local to check. Notarize
+      # and staple the app itself first; the DMG then ships an already-stapled app.
+      - name: Notarize and staple the app
+        run: |
+          printf '%s' "${{ secrets.ASC_PRIVATE_KEY }}" > "$RUNNER_TEMP/asc.p8"
+          ditto -c -k --keepParent "$APP" RioEditor-app.zip
+          xcrun notarytool submit RioEditor-app.zip \
+            --key "$RUNNER_TEMP/asc.p8" \
+            --key-id "${{ secrets.ASC_KEY_ID }}" \
+            --issuer "${{ secrets.ASC_ISSUER_ID }}" \
+            --wait
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          rm -f RioEditor-app.zip
+
       - name: Build the DMG
         run: |
           mkdir -p dmg-staging
@@ -130,9 +146,8 @@ jobs:
 
       # notarytool blocks until Apple has finished, so a green step here means the DMG really
       # is notarized rather than merely submitted.
-      - name: Notarize and staple
+      - name: Notarize and staple the DMG
         run: |
-          printf '%s' "${{ secrets.ASC_PRIVATE_KEY }}" > "$RUNNER_TEMP/asc.p8"
           xcrun notarytool submit RioEditor.dmg \
             --key "$RUNNER_TEMP/asc.p8" \
             --key-id "${{ secrets.ASC_KEY_ID }}" \

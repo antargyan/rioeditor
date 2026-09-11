@@ -157,9 +157,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            gh release create "$GITHUB_REF_NAME" RioEditor.dmg \
-              --title "$GITHUB_REF_NAME" --generate-notes --clobber || \
-            gh release upload "$GITHUB_REF_NAME" RioEditor.dmg --clobber
+            # `gh release create` has no --clobber; only upload does. Ask first, then
+            # pick the command that fits, so a re-run of a tag replaces the asset.
+            if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+              gh release upload "$GITHUB_REF_NAME" RioEditor.dmg --clobber
+            else
+              gh release create "$GITHUB_REF_NAME" RioEditor.dmg \
+                --title "$GITHUB_REF_NAME" --generate-notes
+            fi
           else
             gh release create "dmg-run-${{ github.run_number }}" RioEditor.dmg \
               --title "Manual build ${{ github.run_number }}" --draft --notes 'Manual run; not a release.'
